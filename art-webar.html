@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>ArtPlay — Point. Discover. Experience.</title>
+
+  <!-- MindAR + A-Frame -->
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Mono:wght@300;400&display=swap');
+
+    :root {
+      --gold: #c9a84c;
+      --cream: #f5f0e8;
+      --charcoal: #1a1a1a;
+      --rust: #b85c38;
+      --glass: rgba(255,255,255,0.08);
+      --glass-border: rgba(201,168,76,0.3);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'DM Mono', monospace;
+      background: var(--charcoal);
+      color: var(--cream);
+      height: 100dvh;
+      overflow: hidden;
+    }
+
+    /* ── LANDING SCREEN ── */
+    #landing {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: var(--charcoal);
+      padding: 2rem;
+      text-align: center;
+    }
+
+    #landing::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 60% 40% at 20% 20%, rgba(201,168,76,0.08) 0%, transparent 60%),
+        radial-gradient(ellipse 40% 60% at 80% 80%, rgba(184,92,56,0.07) 0%, transparent 60%);
+      pointer-events: none;
+    }
+
+    .logo-mark {
+      width: 64px;
+      height: 64px;
+      border: 1.5px solid var(--gold);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1.5rem;
+      position: relative;
+      animation: breathe 3s ease-in-out infinite;
+    }
+
+    .logo-mark::after {
+      content: '';
+      position: absolute;
+      inset: 6px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(201,168,76,0.2), transparent);
+    }
+
+    .logo-mark svg { width: 28px; height: 28px; }
+
+    @keyframes breathe {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(201,168,76,0.3); }
+      50% { box-shadow: 0 0 0 12px rgba(201,168,76,0); }
+    }
+
+    h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(2rem, 8vw, 3rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+      margin-bottom: 0.4rem;
+      color: var(--cream);
+    }
+
+    h1 em {
+      font-style: italic;
+      color: var(--gold);
+    }
+
+    .tagline {
+      font-size: 0.7rem;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: rgba(245,240,232,0.4);
+      margin-bottom: 3rem;
+    }
+
+    .instruction-card {
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      border-radius: 16px;
+      padding: 1.5rem 2rem;
+      max-width: 340px;
+      width: 100%;
+      margin-bottom: 2rem;
+      backdrop-filter: blur(12px);
+    }
+
+    .step {
+      display: flex;
+      align-items: flex-start;
+      gap: 1rem;
+      margin-bottom: 1rem;
+      text-align: left;
+    }
+    .step:last-child { margin-bottom: 0; }
+
+    .step-num {
+      min-width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--gold);
+      color: var(--charcoal);
+      font-size: 0.65rem;
+      font-weight: 400;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 1px;
+    }
+
+    .step-text {
+      font-size: 0.75rem;
+      line-height: 1.6;
+      color: rgba(245,240,232,0.75);
+    }
+
+    .step-text strong {
+      color: var(--cream);
+      font-weight: 400;
+    }
+
+    #startBtn {
+      background: var(--gold);
+      color: var(--charcoal);
+      border: none;
+      border-radius: 50px;
+      padding: 0.9rem 2.5rem;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.75rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #startBtn::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.15), transparent);
+    }
+
+    #startBtn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(201,168,76,0.35);
+    }
+
+    #startBtn:active { transform: translateY(0); }
+
+    .demo-note {
+      margin-top: 1.5rem;
+      font-size: 0.62rem;
+      color: rgba(245,240,232,0.25);
+      letter-spacing: 0.05em;
+      line-height: 1.8;
+    }
+
+    /* ── AR SCENE WRAPPER ── */
+    #ar-wrapper {
+      display: none;
+      position: fixed;
+      inset: 0;
+    }
+
+    /* ── OVERLAY HUD ── */
+    #hud {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 50;
+      padding: 1.2rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: linear-gradient(to bottom, rgba(26,26,26,0.7), transparent);
+      pointer-events: none;
+    }
+
+    .hud-brand {
+      font-family: 'Playfair Display', serif;
+      font-size: 0.85rem;
+      color: var(--gold);
+      letter-spacing: 0.05em;
+    }
+
+    #statusPill {
+      font-size: 0.6rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      padding: 0.35rem 0.85rem;
+      border-radius: 50px;
+      border: 1px solid var(--glass-border);
+      background: var(--glass);
+      backdrop-filter: blur(8px);
+      color: rgba(245,240,232,0.6);
+      transition: all 0.4s;
+    }
+
+    #statusPill.found {
+      border-color: var(--gold);
+      color: var(--gold);
+      background: rgba(201,168,76,0.12);
+    }
+
+    /* ── SCAN FRAME ── */
+    #scanFrame {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+
+    .frame-box {
+      width: min(70vw, 300px);
+      height: min(70vw, 300px);
+      position: relative;
+    }
+
+    .corner {
+      position: absolute;
+      width: 28px;
+      height: 28px;
+      border-color: var(--gold);
+      border-style: solid;
+      opacity: 0.7;
+      animation: cornerPulse 2s ease-in-out infinite;
+    }
+
+    .corner.tl { top: 0; left: 0; border-width: 2px 0 0 2px; }
+    .corner.tr { top: 0; right: 0; border-width: 2px 2px 0 0; }
+    .corner.bl { bottom: 0; left: 0; border-width: 0 0 2px 2px; }
+    .corner.br { bottom: 0; right: 0; border-width: 0 2px 2px 0; }
+
+    .corner.tr { animation-delay: 0.15s; }
+    .corner.bl { animation-delay: 0.3s; }
+    .corner.br { animation-delay: 0.45s; }
+
+    @keyframes cornerPulse {
+      0%, 100% { opacity: 0.5; }
+      50% { opacity: 1; }
+    }
+
+    .scan-line {
+      position: absolute;
+      left: 4px; right: 4px;
+      height: 1px;
+      background: linear-gradient(to right, transparent, var(--gold), transparent);
+      top: 0;
+      animation: scanMove 2.5s ease-in-out infinite;
+    }
+
+    @keyframes scanMove {
+      0% { top: 4px; opacity: 0; }
+      10% { opacity: 1; }
+      90% { opacity: 1; }
+      100% { top: calc(100% - 4px); opacity: 0; }
+    }
+
+    .scan-hint {
+      position: absolute;
+      bottom: -2.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.6rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: rgba(245,240,232,0.4);
+      white-space: nowrap;
+    }
+
+    /* ── FOUND TOAST ── */
+    #foundToast {
+      position: fixed;
+      bottom: 2.5rem;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      z-index: 60;
+      background: rgba(26,26,26,0.9);
+      border: 1px solid var(--gold);
+      border-radius: 12px;
+      padding: 0.75rem 1.5rem;
+      font-size: 0.65rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--gold);
+      backdrop-filter: blur(12px);
+      transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+      white-space: nowrap;
+    }
+
+    #foundToast.visible {
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* ── DEMO MODE PANEL ── */
+    #demoPanel {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      z-index: 55;
+      padding: 1.5rem;
+      background: linear-gradient(to top, rgba(26,26,26,0.95), transparent);
+      display: none;
+    }
+
+    .demo-title {
+      font-size: 0.6rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 0.75rem;
+      opacity: 0.7;
+    }
+
+    .demo-controls {
+      display: flex;
+      gap: 0.75rem;
+    }
+
+    .demo-btn {
+      flex: 1;
+      padding: 0.7rem;
+      border-radius: 10px;
+      border: 1px solid var(--glass-border);
+      background: var(--glass);
+      color: var(--cream);
+      font-family: 'DM Mono', monospace;
+      font-size: 0.65rem;
+      letter-spacing: 0.08em;
+      cursor: pointer;
+      transition: all 0.2s;
+      backdrop-filter: blur(8px);
+    }
+
+    .demo-btn:hover {
+      border-color: var(--gold);
+      color: var(--gold);
+    }
+
+    .demo-btn.active {
+      background: rgba(201,168,76,0.15);
+      border-color: var(--gold);
+      color: var(--gold);
+    }
+
+    #closeBtn {
+      position: fixed;
+      top: 1.2rem;
+      right: 1.5rem;
+      z-index: 70;
+      display: none;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 1px solid var(--glass-border);
+      background: var(--glass);
+      color: var(--cream);
+      font-size: 1rem;
+      cursor: pointer;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(8px);
+      transition: all 0.2s;
+    }
+
+    #closeBtn:hover { border-color: var(--rust); color: var(--rust); }
+
+    /* A-Frame canvas */
+    a-scene { width: 100%; height: 100%; }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════
+     LANDING SCREEN
+═══════════════════════════════════════════ -->
+<div id="landing">
+  <div class="logo-mark">
+    <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="3" y="3" width="9" height="9" stroke="#c9a84c" stroke-width="1.5"/>
+      <rect x="16" y="3" width="9" height="9" stroke="#c9a84c" stroke-width="1.5"/>
+      <rect x="3" y="16" width="9" height="9" stroke="#c9a84c" stroke-width="1.5"/>
+      <circle cx="20.5" cy="20.5" r="3.5" fill="#c9a84c" opacity="0.8"/>
+    </svg>
+  </div>
+
+  <h1>Art<em>Play</em></h1>
+  <p class="tagline">Camera · Recognize · Experience</p>
+
+  <div class="instruction-card">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-text"><strong>Open this page</strong> on your phone — no app download needed.</div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-text"><strong>Point your camera</strong> at the registered artwork.</div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-text"><strong>Watch the video play</strong> automatically in augmented reality.</div>
+    </div>
+  </div>
+
+  <button id="startBtn" onclick="startAR()">Activate Camera</button>
+
+  <p class="demo-note">
+    Works in Safari (iOS) & Chrome (Android)<br>
+    No app install · No QR code · No Bluetooth
+  </p>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     AR SCENE
+═══════════════════════════════════════════ -->
+<div id="ar-wrapper">
+
+  <!-- HUD -->
+  <div id="hud">
+    <span class="hud-brand">ArtPlay</span>
+    <span id="statusPill">Scanning…</span>
+  </div>
+
+  <!-- Scan Frame -->
+  <div id="scanFrame">
+    <div class="frame-box">
+      <div class="corner tl"></div>
+      <div class="corner tr"></div>
+      <div class="corner bl"></div>
+      <div class="corner br"></div>
+      <div class="scan-line"></div>
+      <span class="scan-hint">Point at artwork</span>
+    </div>
+  </div>
+
+  <!-- Found Toast -->
+  <div id="foundToast">🎨 Artwork Recognized — Playing</div>
+
+  <!-- Demo Controls -->
+  <div id="demoPanel">
+    <p class="demo-title">Demo — Simulate Detection</p>
+    <div class="demo-controls">
+      <button class="demo-btn" onclick="simulateFound()">▶ Art Found</button>
+      <button class="demo-btn" onclick="simulateLost()">✕ Art Lost</button>
+    </div>
+  </div>
+
+  <!-- A-Frame AR Scene -->
+  <a-scene
+    id="arScene"
+    mindar-image="imageTargetSrc: #targetMind; autoStart: false; uiLoading: no; uiScanning: no; uiError: no;"
+    color-space="sRGB"
+    renderer="colorManagement: true; physicallyCorrectLights: true;"
+    vr-mode-ui="enabled: false"
+    device-orientation-permission-ui="enabled: false"
+    style="display:none"
+  >
+    <a-assets>
+      <!-- 
+        ════════════════════════════════════════════════
+        🔧 HOW TO CUSTOMIZE:
+
+        1. ARTWORK TARGET:
+           Replace #targetMind with your .mind file.
+           Generate it free at: https://hiukim.github.io/mind-ar-js-doc/tools/compile
+           Upload your artwork photo → download the .mind file → host it.
+
+        2. YOUR VIDEO:
+           Replace #artVideo src with your hosted MP4 URL.
+           The video plays overlaid on the recognized artwork.
+        ════════════════════════════════════════════════
+      -->
+      <a-asset-item id="targetMind" src="https://hiukim.github.io/mind-ar-js/examples/image-tracking/assets/card-example/card.mind"></a-asset-item>
+      <video
+        id="artVideo"
+        src="https://www.w3schools.com/html/mov_bbb.mp4"
+        preload="auto"
+        loop
+        muted
+        playsinline
+        crossorigin="anonymous"
+      ></video>
+    </a-assets>
+
+    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+    <a-entity mindar-image-target="targetIndex: 0">
+      <!-- Video plane that appears on top of detected artwork -->
+      <a-plane
+        position="0 0 0.01"
+        height="0.552"
+        width="1"
+        material="src: #artVideo; opacity: 1; shader: flat"
+        id="videoPlane"
+      ></a-plane>
+
+      <!-- Decorative golden border frame -->
+      <a-plane
+        position="0 0 0.005"
+        height="0.57"
+        width="1.02"
+        material="color: #c9a84c; opacity: 0.6; shader: flat"
+      ></a-plane>
+    </a-entity>
+  </a-scene>
+</div>
+
+<button id="closeBtn" onclick="closeAR()">✕</button>
+
+<script>
+  const landing    = document.getElementById('landing');
+  const arWrapper  = document.getElementById('ar-wrapper');
+  const arScene    = document.getElementById('arScene');
+  const statusPill = document.getElementById('statusPill');
+  const scanFrame  = document.getElementById('scanFrame');
+  const foundToast = document.getElementById('foundToast');
+  const demoPanel  = document.getElementById('demoPanel');
+  const closeBtn   = document.getElementById('closeBtn');
+  const videoEl    = document.getElementById('artVideo');
+
+  let arStarted = false;
+
+  // ── Start AR ──
+  function startAR() {
+    landing.style.display = 'none';
+    arWrapper.style.display = 'block';
+    closeBtn.style.display = 'flex';
+    demoPanel.style.display = 'block';
+
+    // Show scene & init MindAR
+    arScene.style.display = 'block';
+
+    arScene.addEventListener('arReady', () => {
+      arStarted = true;
+      console.log('MindAR ready');
+    });
+
+    // Image target found
+    arScene.addEventListener('targetFound', () => {
+      onArtFound();
+    });
+
+    // Image target lost
+    arScene.addEventListener('targetLost', () => {
+      onArtLost();
+    });
+
+    // Fallback: listen on the entity directly
+    document.querySelector('[mindar-image-target]')?.addEventListener('targetFound', onArtFound);
+    document.querySelector('[mindar-image-target]')?.addEventListener('targetLost', onArtLost);
+  }
+
+  // ── Art recognized ──
+  function onArtFound() {
+    statusPill.textContent = 'Artwork Recognized';
+    statusPill.classList.add('found');
+    scanFrame.style.opacity = '0';
+    foundToast.classList.add('visible');
+    videoEl.play().catch(() => {});
+
+    setTimeout(() => foundToast.classList.remove('visible'), 3000);
+  }
+
+  // ── Art lost ──
+  function onArtLost() {
+    statusPill.textContent = 'Scanning…';
+    statusPill.classList.remove('found');
+    scanFrame.style.opacity = '1';
+    videoEl.pause();
+  }
+
+  // ── Demo simulation ──
+  function simulateFound() {
+    onArtFound();
+    document.querySelectorAll('.demo-btn').forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
+  }
+
+  function simulateLost() {
+    onArtLost();
+    document.querySelectorAll('.demo-btn').forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
+  }
+
+  // ── Close ──
+  function closeAR() {
+    arWrapper.style.display = 'none';
+    closeBtn.style.display = 'none';
+    landing.style.display = 'flex';
+    videoEl.pause();
+    statusPill.textContent = 'Scanning…';
+    statusPill.classList.remove('found');
+    scanFrame.style.opacity = '1';
+  }
+
+  // Restore scan frame opacity transition
+  scanFrame.style.transition = 'opacity 0.4s';
+</script>
+
+</body>
+</html>
