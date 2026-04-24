@@ -165,17 +165,17 @@
 
       <!-- REPLACE THIS with your hosted targets.mind URL -->
       <a-asset-item id="targetMind"
-        src="https://rodriged.github.io/ArtViewer/targets.mind"
+        src="https://hiukim.github.io/mind-ar-js/examples/image-tracking/assets/card-example/card.mind">
       </a-asset-item>
 
       <!-- REPLACE each src with your hosted .mp4 URL -->
-      <video id="video0" src="https://rodriged.github.io/ArtViewer/IndianDancer.mp4"
+      <video id="video0" src="https://www.w3schools.com/html/mov_bbb.mp4"
         preload="auto" loop muted playsinline crossorigin="anonymous"></video>
 
-      <video id="video1" src="https://rodriged.github.io/ArtViewer/Hello-whale.mp4"
+      <video id="video1" src="https://www.w3schools.com/html/movie.mp4"
         preload="auto" loop muted playsinline crossorigin="anonymous"></video>
 
-      <video id="video2" src="https://rodriged.github.io/ArtViewer/Hello-whale.mp4"
+      <video id="video2" src="https://www.w3schools.com/html/mov_bbb.mp4"
         preload="auto" loop muted playsinline crossorigin="anonymous"></video>
 
     </a-assets>
@@ -343,6 +343,49 @@
     artworks.forEach((_, i) => setDot(i, false));
     activeIndex = -1;
   }
+
+  /* ════════════════════════════════════════
+     DEBUG — runs automatically on page load
+     Open browser DevTools console to see output
+  ════════════════════════════════════════ */
+  (function debugAR() {
+    const scene = document.getElementById('arScene');
+
+    scene.addEventListener('arReady', () => {
+      console.log('%c✅ MindAR READY — camera active and scanning', 'color:green;font-size:14px;font-weight:bold');
+    });
+
+    scene.addEventListener('arError', (e) => {
+      console.error('%c❌ MindAR ERROR:', 'color:red;font-size:14px;font-weight:bold', e.detail);
+    });
+
+    scene.addEventListener('loaded', () => {
+      console.log('%c🔵 A-Frame scene LOADED', 'color:blue;font-size:14px;font-weight:bold');
+
+      const targets = scene.querySelectorAll('[mindar-image-target]');
+      console.log('   Entities found:', targets.length);
+      targets.forEach((t, i) => {
+        console.log('   Entity', i, '| id:', t.id, '| attr:', t.getAttribute('mindar-image-target'));
+        t.addEventListener('targetFound', () =>
+          console.log('%c🎯 TARGET FOUND — index ' + i, 'color:orange;font-size:14px;font-weight:bold'));
+        t.addEventListener('targetLost', () =>
+          console.log('%c💨 TARGET LOST — index ' + i, 'color:gray'));
+      });
+
+      const videos = scene.querySelectorAll('video');
+      console.log('   Videos found:', videos.length);
+      videos.forEach((v, i) =>
+        console.log('   Video', i, '| src:', v.getAttribute('src'), '| readyState:', v.readyState));
+
+      const mindEl = document.getElementById('targetMind');
+      console.log('   .mind src:', mindEl ? mindEl.getAttribute('src') : '⚠️ NOT FOUND');
+
+      const mindarAttr = scene.getAttribute('mindar-image');
+      console.log('   mindar-image attr:', mindarAttr);
+    });
+
+    console.log('%c🟡 Debug listeners attached — click "Enter the Gallery" to start', 'color:#b8860b;font-size:13px');
+  })();
 </script>
 
 </body>
