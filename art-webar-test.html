@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>ArtPlay — Multi Artwork AR</title>
+
+  <!-- Silence useLegacyLights deprecation warning from THREE r155+ -->
+  <script>
+    // Patch WebGLRenderer before A-Frame loads so the warning never fires
+    const _origRenderer = window.THREE && window.THREE.WebGLRenderer;
+    Object.defineProperty(Object.prototype, 'useLegacyLights', {
+      set: function(v) { /* swallow */ },
+      get: function()  { return false; },
+      configurable: true
+    });
+  </script>
+
+  <!-- A-Frame MUST load before MindAR -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,600;1,300&family=DM+Mono:wght@300;400&display=swap');
+
+    :root {
+      --ink: #0e0e0e;
+      --parchment: #f2ede4;
+      --gold: #b8924a;
+      --gold-light: #d4ad72;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'DM Mono', monospace; background: var(--ink); color: var(--parchment); height: 100dvh; overflow: hidden; }
+
+    #landing { position: fixed; inset: 0; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem; background: var(--ink); }
+    #landing::before { content: ''; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse 70% 50% at 50% 60%, rgba(184,146,74,0.07), transparent 70%); }
+    .wordmark { font-family: 'Cormorant Garamond', serif; font-size: clamp(2.8rem, 10vw, 4.5rem); font-weight: 300; letter-spacing: 0.15em; margin-bottom: 0.2rem; }
+    .wordmark span { color: var(--gold); font-style: italic; }
+    .sub { font-size: 0.6rem; letter-spacing: 0.35em; text-transform: uppercase; color: rgba(242,237,228,0.3); margin-bottom: 3rem; }
+    #artCount { font-family: 'Cormorant Garamond', serif; font-size: 0.8rem; letter-spacing: 0.1em; color: var(--gold-light); border: 1px solid rgba(184,146,74,0.3); padding: 0.3rem 0.8rem; margin-bottom: 2rem; }
+    .steps { display: flex; flex-direction: column; gap: 1rem; max-width: 300px; width: 100%; margin-bottom: 2.5rem; }
+    .step { display: flex; gap: 1rem; align-items: flex-start; }
+    .step-num { font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 1rem; color: var(--gold); min-width: 18px; line-height: 1.4; }
+    .step p { font-size: 0.68rem; line-height: 1.7; color: rgba(242,237,228,0.6); }
+    .step p strong { color: var(--parchment); font-weight: 400; }
+    #startBtn { background: transparent; border: 1px solid var(--gold); color: var(--gold); font-family: 'DM Mono', monospace; font-size: 0.65rem; letter-spacing: 0.25em; text-transform: uppercase; padding: 0.85rem 2.8rem; cursor: pointer; transition: all 0.25s; position: relative; }
+    #startBtn::before { content: ''; position: absolute; inset: 0; background: var(--gold); transform: scaleX(0); transform-origin: left; transition: transform 0.25s ease; z-index: -1; }
+    #startBtn:hover { color: var(--ink); }
+    #startBtn:hover::before { transform: scaleX(1); }
+
+    #ar-wrapper { display: none; position: fixed; inset: 0; }
+
+    #hud { position: fixed; top: 0; left: 0; right: 0; z-index: 50; padding: 1.2rem 1.5rem; display: flex; align-items: center; justify-content: space-between; pointer-events: none; background: linear-gradient(to bottom, rgba(14,14,14,0.65), transparent); }
+    .hud-brand { font-family: 'Cormorant Garamond', serif; font-size: 1rem; font-weight: 300; letter-spacing: 0.15em; color: var(--gold-light); }
+    #statusPill { font-size: 0.55rem; letter-spacing: 0.18em; text-transform: uppercase; padding: 0.3rem 0.8rem; border: 1px solid rgba(242,237,228,0.2); color: rgba(242,237,228,0.4); transition: all 0.4s; }
+    #statusPill.found { border-color: var(--gold); color: var(--gold); background: rgba(184,146,74,0.1); }
+
+    #scanFrame { position: fixed; inset: 0; z-index: 40; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; transition: opacity 0.4s; }
+    .frame-box { width: min(65vw, 280px); height: min(65vw, 280px); position: relative; }
+    .corner { position: absolute; width: 22px; height: 22px; border-color: var(--gold); border-style: solid; }
+    .corner.tl { top: 0; left: 0; border-width: 1.5px 0 0 1.5px; }
+    .corner.tr { top: 0; right: 0; border-width: 1.5px 1.5px 0 0; }
+    .corner.bl { bottom: 0; left: 0; border-width: 0 0 1.5px 1.5px; }
+    .corner.br { bottom: 0; right: 0; border-width: 0 1.5px 1.5px 0; }
+    .scan-line { position: absolute; left: 0; right: 0; height: 1px; background: linear-gradient(to right, transparent, var(--gold-light), transparent); animation: scan 2.5s ease-in-out infinite; }
+    @keyframes scan { 0% { top: 0; opacity: 0; } 5% { opacity: 1; } 95% { opacity: 1; } 100% { top: 100%; opacity: 0; } }
+    .scan-hint { margin-top: 1.5rem; font-size: 0.58rem; letter-spacing: 0.22em; text-transform: uppercase; color: rgba(242,237,228,0.35); }
+
+    #artInfo { position: fixed; bottom: 0; left: 0; right: 0; z-index: 50; padding: 1.2rem 1.5rem 2.5rem; background: linear-gradient(to top, rgba(14,14,14,0.92) 60%, transparent); transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.34,1.4,0.64,1); pointer-events: none; }
+    #artInfo.visible { transform: translateY(0); }
+    #artTitle { font-family: 'Cormorant Garamond', serif; font-size: 1.4rem; font-weight: 300; letter-spacing: 0.05em; margin-bottom: 0.2rem; }
+    #artMeta { font-size: 0.6rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--gold); }
+
+    #artDots { position: fixed; bottom: 1.2rem; left: 50%; transform: translateX(-50%); z-index: 55; display: flex; gap: 6px; }
+    .dot { width: 5px; height: 5px; border-radius: 50%; background: rgba(242,237,228,0.2); border: 1px solid rgba(242,237,228,0.2); transition: all 0.3s; }
+    .dot.active { background: var(--gold); border-color: var(--gold); transform: scale(1.3); }
+
+    #closeBtn { position: fixed; top: 1.2rem; right: 1.5rem; z-index: 70; display: none; width: 34px; height: 34px; border: 1px solid rgba(242,237,228,0.2); background: rgba(14,14,14,0.5); color: var(--parchment); font-size: 0.9rem; cursor: pointer; align-items: center; justify-content: center; transition: all 0.2s; backdrop-filter: blur(8px); }
+    #closeBtn:hover { border-color: var(--gold); color: var(--gold); }
+
+    a-scene { width: 100%; height: 100%; }
+  </style>
+</head>
+<body>
+
+<div id="landing">
+  <p class="wordmark">Art<span>Play</span></p>
+  <p class="sub">Augmented Experience</p>
+  <div id="artCount"></div>
+  <div class="steps">
+    <div class="step"><span class="step-num">i.</span><p><strong>No app needed.</strong> Runs entirely in your browser.</p></div>
+    <div class="step"><span class="step-num">ii.</span><p><strong>Point at any artwork</strong> to play its video.</p></div>
+    <div class="step"><span class="step-num">iii.</span><p><strong>Move between artworks</strong> — each plays its own video automatically.</p></div>
+  </div>
+  <button id="startBtn" onclick="startAR()">Enter the Gallery</button>
+</div>
+
+<div id="ar-wrapper">
+  <div id="hud">
+    <span class="hud-brand">ArtPlay</span>
+    <span id="statusPill">Scanning gallery…</span>
+  </div>
+
+  <div id="scanFrame">
+    <div class="frame-box">
+      <div class="corner tl"></div><div class="corner tr"></div>
+      <div class="corner bl"></div><div class="corner br"></div>
+      <div class="scan-line"></div>
+    </div>
+    <p class="scan-hint">Point at an artwork</p>
+  </div>
+
+  <div id="artInfo">
+    <p id="artTitle"></p>
+    <p id="artMeta"></p>
+  </div>
+
+  <div id="artDots"></div>
+
+  <!--
+  ═══════════════════════════════════════════════════════════════
+  HOW TO SET UP YOUR OWN ARTWORKS — READ THIS FIRST
+
+  STEP 1 — Generate targets.mind
+    • Go to: https://hiukim.github.io/mind-ar-js-doc/tools/compile/
+    • Upload ALL your artwork photos at once
+    • The upload ORDER = the index (first photo = 0, second = 1, …)
+    • Download the targets.mind file
+    • Upload it to your GitHub Pages repo
+    • Replace the src below in <a-asset-item id="targetMind">
+
+  STEP 2 — Add your videos
+    • Upload your .mp4 files to your GitHub Pages repo
+    • Replace each src="..." in the <video> tags below
+    • Add or remove <video> tags to match your artwork count
+    • IDs must be video0, video1, video2 … in order
+
+  STEP 3 — Add AR entities
+    • One <a-entity> block per artwork (already set up below for 3)
+    • To add more: copy an <a-entity> block, increment the id and targetIndex
+    • targetIndex must match the video number and photo upload order
+
+  STEP 4 — Update artwork metadata
+    • Edit the artworks[] array in the <script> at the bottom
+    • title, artist, year — must match upload order
+  ═══════════════════════════════════════════════════════════════
+  -->
+
+  <a-scene
+    id="arScene"
+    mindar-image="imageTargetSrc: #targetMind; autoStart: false; uiLoading: no; uiScanning: no; uiError: no; maxTrack: 3; warmupTolerance: 5; missTolerance: 5;"
+    color-space="sRGB"
+    renderer="colorManagement: true; physicallyCorrectLights: false;"
+    vr-mode-ui="enabled: false"
+    device-orientation-permission-ui="enabled: false"
+    style="display:none"
+  >
+    <a-assets>
+
+      <!-- REPLACE THIS with your hosted targets.mind URL -->
+      <a-asset-item id="targetMind"
+        src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/examples/image-tracking/assets/card-example/card.mind">
+      </a-asset-item>
+
+      <!-- REPLACE each src with your hosted .mp4 URL -->
+      <video id="video0" src="https://rodriged.github.io/ArtViewer/IndianDancer.mp4"
+        preload="auto" loop muted playsinline crossorigin="anonymous"></video>
+
+      <video id="video1" src="https://rodriged.github.io/ArtViewer/Hello-whale.mp4"
+        preload="auto" loop muted playsinline crossorigin="anonymous"></video>
+
+      <video id="video2" src="https://rodriged.github.io/ArtViewer/IndianDancer.mp4"
+        preload="auto" loop muted playsinline crossorigin="anonymous"></video>
+
+    </a-assets>
+
+    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+    <!-- Artwork 0 — targetIndex matches video0 and first uploaded photo -->
+    <a-entity id="target0" mindar-image-target="targetIndex: 0">
+      <a-plane width="1" height="0.552" position="0 0 0.01"
+        material="src: #video0; shader: flat; opacity: 1"></a-plane>
+      <a-plane width="1.03" height="0.572" position="0 0 0.005"
+        material="color: #b8924a; shader: flat; opacity: 0.5"></a-plane>
+    </a-entity>
+
+    <!-- Artwork 1 -->
+    <a-entity id="target1" mindar-image-target="targetIndex: 1">
+      <a-plane width="1" height="0.552" position="0 0 0.01"
+        material="src: #video1; shader: flat; opacity: 1"></a-plane>
+      <a-plane width="1.03" height="0.572" position="0 0 0.005"
+        material="color: #b8924a; shader: flat; opacity: 0.5"></a-plane>
+    </a-entity>
+
+    <!-- Artwork 2 -->
+    <a-entity id="target2" mindar-image-target="targetIndex: 2">
+      <a-plane width="1" height="0.552" position="0 0 0.01"
+        material="src: #video2; shader: flat; opacity: 1"></a-plane>
+      <a-plane width="1.03" height="0.572" position="0 0 0.005"
+        material="color: #b8924a; shader: flat; opacity: 0.5"></a-plane>
+    </a-entity>
+
+  </a-scene>
+</div>
+
+<button id="closeBtn" onclick="closeAR()">✕</button>
+
+<script>
+  /* ═══════════════════════════════════════════════════
+     STEP 4: Update these to match your artworks.
+     Order must match your photo upload order.
+  ═══════════════════════════════════════════════════ */
+  const artworks = [
+    { title: "Artwork One",   artist: "Artist Name", year: "2024" },
+    { title: "Artwork Two",   artist: "Artist Name", year: "2023" },
+    { title: "Artwork Three", artist: "Artist Name", year: "2022" },
+  ];
+
+  /* ── DOM ── */
+  const landing    = document.getElementById('landing');
+  const arWrapper  = document.getElementById('ar-wrapper');
+  const arScene    = document.getElementById('arScene');
+  const statusPill = document.getElementById('statusPill');
+  const scanFrame  = document.getElementById('scanFrame');
+  const artInfo    = document.getElementById('artInfo');
+  const artTitle   = document.getElementById('artTitle');
+  const artMeta    = document.getElementById('artMeta');
+  const artDots    = document.getElementById('artDots');
+  const closeBtn   = document.getElementById('closeBtn');
+
+  /* ── Badge ── */
+  document.getElementById('artCount').textContent =
+    artworks.length + ' artwork' + (artworks.length !== 1 ? 's' : '') + ' registered';
+
+  /* ── Build dots ── */
+  artworks.forEach((_, i) => {
+    const d = document.createElement('div');
+    d.className = 'dot';
+    d.id = 'dot' + i;
+    artDots.appendChild(d);
+  });
+
+  let activeIndex = -1;
+  let listenersAttached = false;
+
+  /* ── Start AR ── */
+  function startAR() {
+    landing.style.display   = 'none';
+    arWrapper.style.display = 'block';
+    closeBtn.style.display  = 'flex';
+    arScene.style.display   = 'block';
+
+    /* Attach listeners first */
+    if (arScene.hasLoaded) {
+      attachListeners();
+    } else {
+      arScene.addEventListener('loaded', attachListeners);
+    }
+
+    /* Give the scene 300ms to become visible then start MindAR */
+    setTimeout(() => {
+      const systems = arScene.systems;
+      console.log('%c🟠 Available A-Frame systems:', 'color:#b8860b', Object.keys(systems));
+
+      /* Try both known MindAR system key names */
+      const mindar = systems['mindar-image-system'] || systems['mindar-image'];
+
+      if (mindar && typeof mindar.start === 'function') {
+        console.log('%c🟠 Calling mindar.start()', 'color:#b8860b;font-weight:bold');
+        mindar.start();
+      } else {
+        console.warn('⚠️ MindAR system not found — check system keys above');
+      }
+    }, 300);
+  }
+
+  /* ── Attach per-target event listeners ── */
+  function attachListeners() {
+    if (listenersAttached) return;
+    listenersAttached = true;
+
+    artworks.forEach((art, i) => {
+      const entity = document.getElementById('target' + i);
+      if (!entity) {
+        console.warn('No entity found for target' + i);
+        return;
+      }
+
+      entity.addEventListener('targetFound', () => {
+        console.log('Target found:', i);
+
+        /* Pause previous */
+        if (activeIndex !== -1 && activeIndex !== i) {
+          pauseVideo(activeIndex);
+          setDot(activeIndex, false);
+        }
+
+        activeIndex = i;
+        playVideo(i);
+
+        statusPill.textContent = art.title;
+        statusPill.classList.add('found');
+        artTitle.textContent = art.title;
+        artMeta.textContent  = art.artist + ' · ' + art.year;
+        artInfo.classList.add('visible');
+        scanFrame.style.opacity = '0';
+        setDot(i, true);
+      });
+
+      entity.addEventListener('targetLost', () => {
+        console.log('Target lost:', i);
+        if (activeIndex !== i) return;
+
+        pauseVideo(i);
+        activeIndex = -1;
+
+        statusPill.textContent = 'Scanning gallery…';
+        statusPill.classList.remove('found');
+        artInfo.classList.remove('visible');
+        scanFrame.style.opacity = '1';
+        setDot(i, false);
+      });
+    });
+  }
+
+  /* ── Video helpers ── */
+  function playVideo(i) {
+    const v = document.getElementById('video' + i);
+    if (!v) return;
+    v.muted = true;
+    v.play().catch(err => console.warn('play() blocked:', err));
+  }
+
+  function pauseVideo(i) {
+    const v = document.getElementById('video' + i);
+    if (v) v.pause();
+  }
+
+  function setDot(i, active) {
+    const d = document.getElementById('dot' + i);
+    if (d) d.classList.toggle('active', active);
+  }
+
+  /* ── Close ── */
+  function closeAR() {
+    /* Stop MindAR cleanly */
+    const mindar = arScene.systems['mindar-image-system'];
+    if (mindar) mindar.stop();
+
+    artworks.forEach((_, i) => pauseVideo(i));
+    arWrapper.style.display = 'none';
+    closeBtn.style.display  = 'none';
+    landing.style.display   = 'flex';
+    statusPill.textContent  = 'Scanning gallery…';
+    statusPill.classList.remove('found');
+    artInfo.classList.remove('visible');
+    scanFrame.style.opacity = '1';
+    artworks.forEach((_, i) => setDot(i, false));
+    activeIndex = -1;
+  }
+
+  /* ════════════════════════════════════════
+     DEBUG — open DevTools console to see output
+  ════════════════════════════════════════ */
+  (function debugAR() {
+    const scene = document.getElementById('arScene');
+
+    scene.addEventListener('arReady', () => {
+      console.log('%c✅ MindAR READY — camera active and scanning', 'color:green;font-size:14px;font-weight:bold');
+    });
+
+    scene.addEventListener('arError', (e) => {
+      console.error('%c❌ MindAR ERROR:', 'color:red;font-size:14px;font-weight:bold', e.detail);
+    });
+
+    scene.addEventListener('loaded', () => {
+      console.log('%c🔵 A-Frame scene LOADED', 'color:blue;font-size:14px;font-weight:bold');
+
+      const targets = scene.querySelectorAll('[mindar-image-target]');
+      console.log('   Entities found:', targets.length);
+      targets.forEach((t, i) => {
+        console.log('   Entity', i, '| id:', t.id, '| attr:', t.getAttribute('mindar-image-target'));
+        t.addEventListener('targetFound', () =>
+          console.log('%c🎯 TARGET FOUND — index ' + i, 'color:orange;font-size:14px;font-weight:bold'));
+        t.addEventListener('targetLost',  () =>
+          console.log('%c💨 TARGET LOST — index '  + i, 'color:gray'));
+      });
+
+      const videos = scene.querySelectorAll('video');
+      console.log('   Videos found:', videos.length);
+      videos.forEach((v, i) =>
+        console.log('   Video', i, '| src:', v.getAttribute('src'), '| readyState:', v.readyState));
+
+      const mindEl = document.getElementById('targetMind');
+      console.log('   .mind src:', mindEl ? mindEl.getAttribute('src') : '⚠️ NOT FOUND');
+
+      const mindarAttr = scene.getAttribute('mindar-image');
+      console.log('   mindar-image attr:', mindarAttr);
+    });
+
+    console.log('%c🟡 Debug listeners attached — click "Enter the Gallery" to start', 'color:#b8860b;font-size:13px');
+  })();
+</script>
+
+</body>
+</html>
