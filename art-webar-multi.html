@@ -5,6 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
   <title>ArtPlay — Multi Artwork AR</title>
 
+  <!-- Silence useLegacyLights deprecation warning from THREE r155+ -->
+  <script>
+    // Patch WebGLRenderer before A-Frame loads so the warning never fires
+    const _origRenderer = window.THREE && window.THREE.WebGLRenderer;
+    Object.defineProperty(Object.prototype, 'useLegacyLights', {
+      set: function(v) { /* swallow */ },
+      get: function()  { return false; },
+      configurable: true
+    });
+  </script>
+
   <!-- A-Frame MUST load before MindAR -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
@@ -240,19 +251,28 @@
     closeBtn.style.display  = 'flex';
     arScene.style.display   = 'block';
 
-    /* FIX: Start MindAR manually after showing the scene */
-    setTimeout(() => {
-      const mindar = arScene.systems['mindar-image-system'];
-      if (mindar) {
-        mindar.start();
-      }
-    }, 100);
-
+    /* Attach listeners first */
     if (arScene.hasLoaded) {
       attachListeners();
     } else {
       arScene.addEventListener('loaded', attachListeners);
     }
+
+    /* Give the scene 300ms to become visible then start MindAR */
+    setTimeout(() => {
+      const systems = arScene.systems;
+      console.log('%c🟠 Available A-Frame systems:', 'color:#b8860b', Object.keys(systems));
+
+      /* Try both known MindAR system key names */
+      const mindar = systems['mindar-image-system'] || systems['mindar-image'];
+
+      if (mindar && typeof mindar.start === 'function') {
+        console.log('%c🟠 Calling mindar.start()', 'color:#b8860b;font-weight:bold');
+        mindar.start();
+      } else {
+        console.warn('⚠️ MindAR system not found — check system keys above');
+      }
+    }, 300);
   }
 
   /* ── Attach per-target event listeners ── */
