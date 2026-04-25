@@ -149,7 +149,7 @@
 
   <a-scene
     id="arScene"
-    mindar-image="imageTargetSrc: #targetMind; autoStart: false; uiLoading: no; uiScanning: no; uiError: no; maxTrack: 3; warmupTolerance: 5; missTolerance: 5;"
+    mindar-image="imageTargetSrc: https://rodriged.github.io/ArtViewer/targets.mind; autoStart: false; uiLoading: no; uiScanning: no; uiError: no; maxTrack: 3; warmupTolerance: 5; missTolerance: 5;"
     color-space="sRGB"
     renderer="colorManagement: true; physicallyCorrectLights: false;"
     vr-mode-ui="enabled: false"
@@ -157,11 +157,7 @@
     style="display:none"
   >
     <a-assets>
-
-      <!-- REPLACE THIS with your hosted targets.mind URL -->
-      <a-asset-item id="targetMind"
-        src="https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/examples/image-tracking/assets/card-example/card.mind">
-      </a-asset-item>
+      <!-- NOTE: .mind file is loaded directly in mindar-image attr above (official pattern) -->
 
       <!-- REPLACE each src with your hosted .mp4 URL -->
       <video id="video0" src="https://rodriged.github.io/ArtViewer/IndianDancer.mp4"
@@ -392,11 +388,9 @@
       videos.forEach((v, i) =>
         console.log('   Video', i, '| src:', v.getAttribute('src'), '| readyState:', v.readyState));
 
-      const mindEl = document.getElementById('targetMind');
-      console.log('   .mind src:', mindEl ? mindEl.getAttribute('src') : '⚠️ NOT FOUND');
-
       const mindarAttr = scene.getAttribute('mindar-image');
       console.log('   mindar-image attr:', mindarAttr);
+      console.log('   .mind src:', mindarAttr ? mindarAttr.imageTargetSrc : '⚠️ NOT FOUND');
     });
 
     console.log('%c🟡 Debug listeners attached — click "Enter the Gallery" to start', 'color:#b8860b;font-size:13px');
