@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
   <title>ArtPlay — Multi Artwork AR</title>
 
+  <!-- A-Frame MUST load before MindAR -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
@@ -21,15 +22,8 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'DM Mono', monospace; background: var(--ink); color: var(--parchment); height: 100dvh; overflow: hidden; }
 
-    #landing {
-      position: fixed; inset: 0; z-index: 100;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      padding: 2rem; background: var(--ink);
-    }
-    #landing::before {
-      content: ''; position: absolute; inset: 0; pointer-events: none;
-      background: radial-gradient(ellipse 70% 50% at 50% 60%, rgba(184,146,74,0.07), transparent 70%);
-    }
+    #landing { position: fixed; inset: 0; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem; background: var(--ink); }
+    #landing::before { content: ''; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse 70% 50% at 50% 60%, rgba(184,146,74,0.07), transparent 70%); }
     .wordmark { font-family: 'Cormorant Garamond', serif; font-size: clamp(2.8rem, 10vw, 4.5rem); font-weight: 300; letter-spacing: 0.15em; margin-bottom: 0.2rem; }
     .wordmark span { color: var(--gold); font-style: italic; }
     .sub { font-size: 0.6rem; letter-spacing: 0.35em; text-transform: uppercase; color: rgba(242,237,228,0.3); margin-bottom: 3rem; }
@@ -39,11 +33,7 @@
     .step-num { font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 1rem; color: var(--gold); min-width: 18px; line-height: 1.4; }
     .step p { font-size: 0.68rem; line-height: 1.7; color: rgba(242,237,228,0.6); }
     .step p strong { color: var(--parchment); font-weight: 400; }
-    #startBtn {
-      background: transparent; border: 1px solid var(--gold); color: var(--gold);
-      font-family: 'DM Mono', monospace; font-size: 0.65rem; letter-spacing: 0.25em;
-      text-transform: uppercase; padding: 0.85rem 2.8rem; cursor: pointer; transition: all 0.25s; position: relative;
-    }
+    #startBtn { background: transparent; border: 1px solid var(--gold); color: var(--gold); font-family: 'DM Mono', monospace; font-size: 0.65rem; letter-spacing: 0.25em; text-transform: uppercase; padding: 0.85rem 2.8rem; cursor: pointer; transition: all 0.25s; position: relative; }
     #startBtn::before { content: ''; position: absolute; inset: 0; background: var(--gold); transform: scaleX(0); transform-origin: left; transition: transform 0.25s ease; z-index: -1; }
     #startBtn:hover { color: var(--ink); }
     #startBtn:hover::before { transform: scaleX(1); }
@@ -143,20 +133,14 @@
   STEP 4 — Update artwork metadata
     • Edit the artworks[] array in the <script> at the bottom
     • title, artist, year — must match upload order
-
-  WHY THE DEMO SHOWS NOTHING:
-    The src currently points to a sample .mind file from MindAR's own
-    demo. It only recognises a specific business card image, not your
-    artwork. Once you replace targets.mind with your own file, the
-    camera will recognise your actual artwork and play the video.
   ═══════════════════════════════════════════════════════════════
   -->
 
   <a-scene
     id="arScene"
-    mindar-image="imageTargetSrc: #targetMind; autoStart: false; uiLoading: no; uiScanning: no; uiError: no;"
+    mindar-image="imageTargetSrc: #targetMind; autoStart: false; uiLoading: no; uiScanning: no; uiError: no; maxTrack: 3; warmupTolerance: 5; missTolerance: 5;"
     color-space="sRGB"
-    renderer="colorManagement: true; physicallyCorrectLights: true;"
+    renderer="colorManagement: true; physicallyCorrectLights: false;"
     vr-mode-ui="enabled: false"
     device-orientation-permission-ui="enabled: false"
     style="display:none"
@@ -256,6 +240,14 @@
     closeBtn.style.display  = 'flex';
     arScene.style.display   = 'block';
 
+    /* FIX: Start MindAR manually after showing the scene */
+    setTimeout(() => {
+      const mindar = arScene.systems['mindar-image-system'];
+      if (mindar) {
+        mindar.start();
+      }
+    }, 100);
+
     if (arScene.hasLoaded) {
       attachListeners();
     } else {
@@ -316,7 +308,7 @@
   function playVideo(i) {
     const v = document.getElementById('video' + i);
     if (!v) return;
-    v.muted = true; /* ensure muted so autoplay policy is satisfied */
+    v.muted = true;
     v.play().catch(err => console.warn('play() blocked:', err));
   }
 
@@ -332,6 +324,10 @@
 
   /* ── Close ── */
   function closeAR() {
+    /* Stop MindAR cleanly */
+    const mindar = arScene.systems['mindar-image-system'];
+    if (mindar) mindar.stop();
+
     artworks.forEach((_, i) => pauseVideo(i));
     arWrapper.style.display = 'none';
     closeBtn.style.display  = 'none';
@@ -345,8 +341,7 @@
   }
 
   /* ════════════════════════════════════════
-     DEBUG — runs automatically on page load
-     Open browser DevTools console to see output
+     DEBUG — open DevTools console to see output
   ════════════════════════════════════════ */
   (function debugAR() {
     const scene = document.getElementById('arScene');
@@ -368,8 +363,8 @@
         console.log('   Entity', i, '| id:', t.id, '| attr:', t.getAttribute('mindar-image-target'));
         t.addEventListener('targetFound', () =>
           console.log('%c🎯 TARGET FOUND — index ' + i, 'color:orange;font-size:14px;font-weight:bold'));
-        t.addEventListener('targetLost', () =>
-          console.log('%c💨 TARGET LOST — index ' + i, 'color:gray'));
+        t.addEventListener('targetLost',  () =>
+          console.log('%c💨 TARGET LOST — index '  + i, 'color:gray'));
       });
 
       const videos = scene.querySelectorAll('video');
