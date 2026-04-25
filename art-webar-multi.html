@@ -18,7 +18,7 @@
 
   <!-- A-Frame MUST load before MindAR -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
 
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,600;1,300&family=DM+Mono:wght@300;400&display=swap');
@@ -80,6 +80,89 @@
     #closeBtn:hover { border-color: var(--gold); color: var(--gold); }
 
     a-scene { width: 100%; height: 100%; }
+
+    /* ── FULLSCREEN VIDEO PLAYER ── */
+    #videoPlayer {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      background: #000;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    #videoPlayer.active { display: flex; }
+
+    #fullscreenVideo {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: #000;
+    }
+
+    /* Title overlay at top */
+    #videoOverlayTop {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      padding: 1.2rem 1.5rem;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      pointer-events: none;
+    }
+    #videoOverlayTitle {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1rem;
+      font-weight: 300;
+      letter-spacing: 0.08em;
+      color: var(--parchment);
+    }
+    #videoOverlayMeta {
+      font-size: 0.55rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--gold);
+    }
+
+    /* Bottom controls */
+    #videoOverlayBottom {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      padding: 1.5rem;
+      background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    #backToScanBtn {
+      background: transparent;
+      border: 1px solid var(--gold);
+      color: var(--gold);
+      font-family: 'DM Mono', monospace;
+      font-size: 0.6rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      padding: 0.6rem 1.2rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    #backToScanBtn:hover { background: var(--gold); color: var(--ink); }
+    #exitBtn {
+      background: transparent;
+      border: 1px solid rgba(242,237,228,0.3);
+      color: rgba(242,237,228,0.6);
+      font-family: 'DM Mono', monospace;
+      font-size: 0.6rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      padding: 0.6rem 1.2rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    #exitBtn:hover { border-color: rgba(242,237,228,0.6); color: var(--parchment); }
   </style>
 </head>
 <body>
@@ -149,7 +232,7 @@
 
   <a-scene
     id="arScene"
-    mindar-image="imageTargetSrc: #targetMind; autoStart: false; uiLoading: no; uiScanning: no; uiError: no; maxTrack: 3; warmupTolerance: 5; missTolerance: 5;"
+    mindar-image="imageTargetSrc: https://rodriged.github.io/ArtViewer/targets.mind; autoStart: false; uiLoading: no; uiScanning: no; uiError: no; maxTrack: 3; warmupTolerance: 5; missTolerance: 5;"
     color-space="sRGB"
     renderer="colorManagement: true; physicallyCorrectLights: false;"
     vr-mode-ui="enabled: false"
@@ -157,11 +240,7 @@
     style="display:none"
   >
     <a-assets>
-
-      <!-- REPLACE THIS with your hosted targets.mind URL -->
-      <a-asset-item id="targetMind"
-        src="https://rodriged.github.io/ArtViewer/targets.mind">
-      </a-asset-item>
+      <!-- NOTE: .mind file is loaded directly in mindar-image attr above (official pattern) -->
 
       <!-- REPLACE each src with your hosted .mp4 URL -->
       <video id="video0" src="https://rodriged.github.io/ArtViewer/IndianDancer.mp4"
@@ -202,6 +281,21 @@
     </a-entity>
 
   </a-scene>
+</div>
+
+<!-- ── FULLSCREEN VIDEO PLAYER ── -->
+<div id="videoPlayer">
+  <video id="fullscreenVideo" playsinline loop muted></video>
+  <div id="videoOverlayTop">
+    <div>
+      <div id="videoOverlayTitle"></div>
+      <div id="videoOverlayMeta"></div>
+    </div>
+  </div>
+  <div id="videoOverlayBottom">
+    <button id="backToScanBtn" onclick="backToScan()">⟵ Scan Another</button>
+    <button id="exitBtn" onclick="closeAR()">✕ Exit</button>
+  </div>
 </div>
 
 <button id="closeBtn" onclick="closeAR()">✕</button>
@@ -289,47 +383,76 @@
 
       entity.addEventListener('targetFound', () => {
         console.log('Target found:', i);
-
-        /* Pause previous */
-        if (activeIndex !== -1 && activeIndex !== i) {
-          pauseVideo(activeIndex);
-          setDot(activeIndex, false);
-        }
-
         activeIndex = i;
-        playVideo(i);
-
-        statusPill.textContent = art.title;
-        statusPill.classList.add('found');
-        artTitle.textContent = art.title;
-        artMeta.textContent  = art.artist + ' · ' + art.year;
-        artInfo.classList.add('visible');
-        scanFrame.style.opacity = '0';
-        setDot(i, true);
+        showFullscreenVideo(i);
       });
 
       entity.addEventListener('targetLost', () => {
         console.log('Target lost:', i);
-        if (activeIndex !== i) return;
-
-        pauseVideo(i);
-        activeIndex = -1;
-
-        statusPill.textContent = 'Scanning gallery…';
-        statusPill.classList.remove('found');
-        artInfo.classList.remove('visible');
-        scanFrame.style.opacity = '1';
-        setDot(i, false);
+        /* Don't stop fullscreen on lost — let user watch the full video */
       });
     });
   }
 
-  /* ── Video helpers ── */
-  function playVideo(i) {
-    const v = document.getElementById('video' + i);
-    if (!v) return;
-    v.muted = true;
-    v.play().catch(err => console.warn('play() blocked:', err));
+  /* ── Fullscreen video player ── */
+  const videoPlayer       = document.getElementById('videoPlayer');
+  const fullscreenVideo   = document.getElementById('fullscreenVideo');
+  const videoOverlayTitle = document.getElementById('videoOverlayTitle');
+  const videoOverlayMeta  = document.getElementById('videoOverlayMeta');
+
+  function showFullscreenVideo(i) {
+    const art = artworks[i];
+    const src = document.getElementById('video' + i)?.getAttribute('src');
+    if (!src) return;
+
+    /* Stop MindAR camera to save battery while watching */
+    const mindar = arScene.systems['mindar-image-system'];
+    if (mindar) mindar.pause();
+
+    /* Hide AR, show fullscreen player */
+    arWrapper.style.display = 'none';
+    closeBtn.style.display  = 'none';
+    videoPlayer.classList.add('active');
+
+    /* Set video source and play */
+    fullscreenVideo.src = src;
+    fullscreenVideo.muted = true;
+    fullscreenVideo.currentTime = 0;
+    fullscreenVideo.play().catch(err => console.warn('play blocked:', err));
+
+    /* Update overlay info */
+    videoOverlayTitle.textContent = art.title;
+    videoOverlayMeta.textContent  = art.artist + ' · ' + art.year;
+
+    /* Try native fullscreen (works on most Android Chrome) */
+    if (fullscreenVideo.requestFullscreen) {
+      fullscreenVideo.requestFullscreen().catch(() => {});
+    } else if (fullscreenVideo.webkitRequestFullscreen) {
+      fullscreenVideo.webkitRequestFullscreen();
+    }
+  }
+
+  function backToScan() {
+    /* Stop fullscreen video */
+    fullscreenVideo.pause();
+    fullscreenVideo.src = '';
+    videoPlayer.classList.remove('active');
+
+    /* Exit native fullscreen if active */
+    if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+    else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+
+    /* Resume MindAR camera */
+    const mindar = arScene.systems['mindar-image-system'];
+    if (mindar) mindar.unpause();
+
+    /* Show AR wrapper again */
+    arWrapper.style.display = 'block';
+    closeBtn.style.display  = 'flex';
+    statusPill.textContent  = 'Scanning gallery…';
+    statusPill.classList.remove('found');
+    scanFrame.style.opacity = '1';
+    activeIndex = -1;
   }
 
   function pauseVideo(i) {
@@ -392,11 +515,9 @@
       videos.forEach((v, i) =>
         console.log('   Video', i, '| src:', v.getAttribute('src'), '| readyState:', v.readyState));
 
-      const mindEl = document.getElementById('targetMind');
-      console.log('   .mind src:', mindEl ? mindEl.getAttribute('src') : '⚠️ NOT FOUND');
-
       const mindarAttr = scene.getAttribute('mindar-image');
       console.log('   mindar-image attr:', mindarAttr);
+      console.log('   .mind src:', mindarAttr ? mindarAttr.imageTargetSrc : '⚠️ NOT FOUND');
     });
 
     console.log('%c🟡 Debug listeners attached — click "Enter the Gallery" to start', 'color:#b8860b;font-size:13px');
