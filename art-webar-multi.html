@@ -143,24 +143,24 @@
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
     <a-entity id="target0" mindar-image-target="targetIndex: 0">
-      <a-plane width="1" height="0.552" position="0 0 0.01" material="src: #video0; shader: flat; opacity: 1"></a-plane>
-      <a-plane width="1.03" height="0.572" position="0 0 0.005" material="color: #b8924a; shader: flat; opacity: 0.5"></a-plane>
+      <a-plane width="1" height="0.552" position="0 0 0.01" material="src: #video0; shader: flat; opacity: 0"></a-plane>
+      <a-plane width="1.03" height="0.572" position="0 0 0.005" material="color: #b8924a; shader: flat; opacity: 0"></a-plane>
     </a-entity>
     <a-entity id="target1" mindar-image-target="targetIndex: 1">
-      <a-plane width="1" height="0.552" position="0 0 0.01" material="src: #video1; shader: flat; opacity: 1"></a-plane>
-      <a-plane width="1.03" height="0.572" position="0 0 0.005" material="color: #b8924a; shader: flat; opacity: 0.5"></a-plane>
+      <a-plane width="1" height="0.552" position="0 0 0.01" material="src: #video1; shader: flat; opacity: 0"></a-plane>
+      <a-plane width="1.03" height="0.572" position="0 0 0.005" material="color: #b8924a; shader: flat; opacity: 0"></a-plane>
     </a-entity>
     <a-entity id="target2" mindar-image-target="targetIndex: 2">
-      <a-plane width="1" height="0.552" position="0 0 0.01" material="src: #video2; shader: flat; opacity: 1"></a-plane>
-      <a-plane width="1.03" height="0.572" position="0 0 0.005" material="color: #b8924a; shader: flat; opacity: 0.5"></a-plane>
+      <a-plane width="1" height="0.552" position="0 0 0.01" material="src: #video2; shader: flat; opacity: 0"></a-plane>
+      <a-plane width="1.03" height="0.572" position="0 0 0.005" material="color: #b8924a; shader: flat; opacity: 0"></a-plane>
     </a-entity>
     <a-entity id="target3" mindar-image-target="targetIndex: 3">
-      <a-plane width="1" height="0.552" position="0 0 0.01" material="src: #video3; shader: flat; opacity: 1"></a-plane>
-      <a-plane width="1.03" height="0.572" position="0 0 0.005" material="color: #b8924a; shader: flat; opacity: 0.5"></a-plane>
+      <a-plane width="1" height="0.552" position="0 0 0.01" material="src: #video3; shader: flat; opacity: 0"></a-plane>
+      <a-plane width="1.03" height="0.572" position="0 0 0.005" material="color: #b8924a; shader: flat; opacity: 0"></a-plane>
     </a-entity>
     <a-entity id="target4" mindar-image-target="targetIndex: 4">
-      <a-plane width="1" height="0.552" position="0 0 0.01" material="src: #video4; shader: flat; opacity: 1"></a-plane>
-      <a-plane width="1.03" height="0.572" position="0 0 0.005" material="color: #b8924a; shader: flat; opacity: 0.5"></a-plane>
+      <a-plane width="1" height="0.552" position="0 0 0.01" material="src: #video4; shader: flat; opacity: 0"></a-plane>
+      <a-plane width="1.03" height="0.572" position="0 0 0.005" material="color: #b8924a; shader: flat; opacity: 0"></a-plane>
     </a-entity>
   </a-scene>
 </div>
@@ -249,12 +249,20 @@
     closeBtn.style.display  = 'flex';
     arScene.style.display   = 'block';
 
-    if (arScene.hasLoaded) attachListeners();
-    else arScene.addEventListener('loaded', attachListeners);
+    /* Always re-attach listeners on each entry */
+    listenersAttached = false;
+    if (arScene.hasLoaded) {
+      attachListeners();
+    } else {
+      arScene.addEventListener('loaded', attachListeners);
+    }
 
+    /* Always call start() — works for both first entry and re-entry after stop() */
     setTimeout(() => {
       const mindar = getMindAR();
-      if (mindar && typeof mindar.start === 'function') mindar.start();
+      if (mindar && typeof mindar.start === 'function') {
+        mindar.start();
+      }
     }, 300);
   }
 
@@ -348,13 +356,13 @@
 
     /* 6. Reset state */
     resetUI();
-    listenersAttached = false;
+    listenersAttached = false; /* reset so listeners re-attach on next entry */
 
-    /* 7. Show landing after a brief delay to let fullscreen collapse */
+    /* 7. Show landing after fullscreen collapses — prevents black flash */
     setTimeout(() => {
-      videoPlayer.style.display = '';  /* restore to CSS default */
+      videoPlayer.style.display = ''; /* restore CSS default */
       landing.style.display = 'flex';
-    }, 150);
+    }, 250);
   }
 
   /* ── Debug ── */
