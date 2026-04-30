@@ -225,8 +225,7 @@
     fullscreenVideo.pause();
     fullscreenVideo.src = '';
     videoPlayer.classList.remove('active');
-    if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
-    else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+    /* Note: fullscreen exit is handled by the caller to avoid double calls */
   }
 
   function resetUI() {
@@ -325,26 +324,37 @@
 
   /* ── Exit — stop everything and return to landing ── */
   function exitApp() {
-    /* 1. Stop fullscreen video */
-    stopVideo();
+    /* 1. Immediately hide video player — prevents black flash */
+    videoPlayer.style.display = 'none';
+    videoPlayer.classList.remove('active');
 
-    /* 2. Stop MindAR completely */
-    const mindar = getMindAR();
-    if (mindar) {
-      try { mindar.stop(); } catch(e) {}
+    /* 2. Stop video element first */
+    fullscreenVideo.pause();
+    fullscreenVideo.src = '';
+
+    /* 3. Exit native fullscreen — this is async, so we hide UI first */
+    if (document.fullscreenElement || document.webkitFullscreenElement) {
+      const exitFs = document.exitFullscreen || document.webkitExitFullscreen;
+      if (exitFs) exitFs.call(document).catch(() => {});
     }
 
-    /* 3. Hide all AR/video layers */
-    videoPlayer.classList.remove('active');
+    /* 4. Stop MindAR */
+    const mindar = getMindAR();
+    if (mindar) { try { mindar.stop(); } catch(e) {} }
+
+    /* 5. Hide AR wrapper and close button */
     arWrapper.style.display = 'none';
     closeBtn.style.display  = 'none';
 
-    /* 4. Reset state */
+    /* 6. Reset state */
     resetUI();
     listenersAttached = false;
 
-    /* 5. Show landing */
-    landing.style.display = 'flex';
+    /* 7. Show landing after a brief delay to let fullscreen collapse */
+    setTimeout(() => {
+      videoPlayer.style.display = '';  /* restore to CSS default */
+      landing.style.display = 'flex';
+    }, 150);
   }
 
   /* ── Debug ── */
