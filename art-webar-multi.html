@@ -5,18 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
   <title>ArtPlay — Multi Artwork AR</title>
 
-  <!-- Silence useLegacyLights deprecation warning from THREE r155+ -->
   <script>
-    // Patch WebGLRenderer before A-Frame loads so the warning never fires
-    const _origRenderer = window.THREE && window.THREE.WebGLRenderer;
     Object.defineProperty(Object.prototype, 'useLegacyLights', {
-      set: function(v) { /* swallow */ },
+      set: function(v) {},
       get: function()  { return false; },
       configurable: true
     });
   </script>
 
-  <!-- A-Frame MUST load before MindAR -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
 
@@ -82,86 +78,18 @@
     a-scene { width: 100%; height: 100%; }
 
     /* ── FULLSCREEN VIDEO PLAYER ── */
-    #videoPlayer {
-      display: none;
-      position: fixed;
-      inset: 0;
-      z-index: 200;
-      background: #000;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-    }
+    #videoPlayer { display: none; position: fixed; inset: 0; z-index: 200; background: #000; flex-direction: column; align-items: center; justify-content: center; }
     #videoPlayer.active { display: flex; }
+    #fullscreenVideo { width: 100%; height: 100%; object-fit: contain; background: #000; }
 
-    #fullscreenVideo {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      background: #000;
-    }
+    #videoOverlayTop { position: absolute; top: 0; left: 0; right: 0; padding: 1.2rem 1.5rem; background: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent); display: flex; align-items: center; justify-content: space-between; pointer-events: none; }
+    #videoOverlayTitle { font-family: 'Cormorant Garamond', serif; font-size: 1rem; font-weight: 300; letter-spacing: 0.08em; color: var(--parchment); }
+    #videoOverlayMeta { font-size: 0.55rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--gold); }
 
-    /* Title overlay at top */
-    #videoOverlayTop {
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      padding: 1.2rem 1.5rem;
-      background: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      pointer-events: none;
-    }
-    #videoOverlayTitle {
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 1rem;
-      font-weight: 300;
-      letter-spacing: 0.08em;
-      color: var(--parchment);
-    }
-    #videoOverlayMeta {
-      font-size: 0.55rem;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: var(--gold);
-    }
-
-    /* Bottom controls */
-    #videoOverlayBottom {
-      position: absolute;
-      bottom: 0; left: 0; right: 0;
-      padding: 1.5rem;
-      background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1rem;
-    }
-    #backToScanBtn {
-      background: transparent;
-      border: 1px solid var(--gold);
-      color: var(--gold);
-      font-family: 'DM Mono', monospace;
-      font-size: 0.6rem;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      padding: 0.6rem 1.2rem;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
+    #videoOverlayBottom { position: absolute; bottom: 0; left: 0; right: 0; padding: 1.5rem; background: linear-gradient(to top, rgba(0,0,0,0.7), transparent); display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+    #backToScanBtn { background: transparent; border: 1px solid var(--gold); color: var(--gold); font-family: 'DM Mono', monospace; font-size: 0.6rem; letter-spacing: 0.2em; text-transform: uppercase; padding: 0.6rem 1.2rem; cursor: pointer; transition: all 0.2s; }
     #backToScanBtn:hover { background: var(--gold); color: var(--ink); }
-    #exitBtn {
-      background: transparent;
-      border: 1px solid rgba(242,237,228,0.3);
-      color: rgba(242,237,228,0.6);
-      font-family: 'DM Mono', monospace;
-      font-size: 0.6rem;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      padding: 0.6rem 1.2rem;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
+    #exitBtn { background: transparent; border: 1px solid rgba(242,237,228,0.3); color: rgba(242,237,228,0.6); font-family: 'DM Mono', monospace; font-size: 0.6rem; letter-spacing: 0.2em; text-transform: uppercase; padding: 0.6rem 1.2rem; cursor: pointer; transition: all 0.2s; }
     #exitBtn:hover { border-color: rgba(242,237,228,0.6); color: var(--parchment); }
   </style>
 </head>
@@ -184,7 +112,6 @@
     <span class="hud-brand">ArtPlay</span>
     <span id="statusPill">Scanning gallery…</span>
   </div>
-
   <div id="scanFrame">
     <div class="frame-box">
       <div class="corner tl"></div><div class="corner tr"></div>
@@ -193,42 +120,8 @@
     </div>
     <p class="scan-hint">Point at an artwork</p>
   </div>
-
-  <div id="artInfo">
-    <p id="artTitle"></p>
-    <p id="artMeta"></p>
-  </div>
-
+  <div id="artInfo"><p id="artTitle"></p><p id="artMeta"></p></div>
   <div id="artDots"></div>
-
-  <!--
-  ═══════════════════════════════════════════════════════════════
-  HOW TO SET UP YOUR OWN ARTWORKS — READ THIS FIRST
-
-  STEP 1 — Generate targets.mind
-    • Go to: https://hiukim.github.io/mind-ar-js-doc/tools/compile/
-    • Upload ALL your artwork photos at once
-    • The upload ORDER = the index (first photo = 0, second = 1, …)
-    • Download the targets.mind file
-    • Upload it to your GitHub Pages repo
-    • Replace the src below in <a-asset-item id="targetMind">
-
-  STEP 2 — Add your videos
-    • Upload your .mp4 files to your GitHub Pages repo
-    • Replace each src="..." in the <video> tags below
-    • Add or remove <video> tags to match your artwork count
-    • IDs must be video0, video1, video2 … in order
-
-  STEP 3 — Add AR entities
-    • One <a-entity> block per artwork (already set up below for 3)
-    • To add more: copy an <a-entity> block, increment the id and targetIndex
-    • targetIndex must match the video number and photo upload order
-
-  STEP 4 — Update artwork metadata
-    • Edit the artworks[] array in the <script> at the bottom
-    • title, artist, year — must match upload order
-  ═══════════════════════════════════════════════════════════════
-  -->
 
   <a-scene
     id="arScene"
@@ -240,72 +133,39 @@
     style="display:none"
   >
     <a-assets>
-      <!-- NOTE: .mind file is loaded directly in mindar-image attr above (official pattern) -->
-
-      <!-- REPLACE each src with your hosted .mp4 URL -->
-      <video id="video0" src="https://rodriged.github.io/ArtViewer/Lion-a.mp4"
-        preload="auto" loop muted playsinline crossorigin="anonymous"></video>
-
-      <video id="video1" src="https://rodriged.github.io/ArtViewer/FlamingPeacock.mp4"
-        preload="auto" loop muted playsinline crossorigin="anonymous"></video>
-
-      <video id="video2" src="https://rodriged.github.io/ArtViewer/SS-SpanishDancer.mp4"
-        preload="auto" loop muted playsinline crossorigin="anonymous"></video>
-
-      <video id="video3" src="https://rodriged.github.io/ArtViewer/IndianDancer.mp4"
-        preload="auto" loop muted playsinline crossorigin="anonymous"></video>
-
-      <video id="video4" src="https://rodriged.github.io/ArtViewer/Hello-whale.mp4"
-        preload="auto" loop muted playsinline crossorigin="anonymous"></video>
-
+      <video id="video0" src="https://rodriged.github.io/ArtViewer/Lion-a.mp4"         preload="auto" loop muted playsinline crossorigin="anonymous"></video>
+      <video id="video1" src="https://rodriged.github.io/ArtViewer/FlamingPeacock.mp4" preload="auto" loop muted playsinline crossorigin="anonymous"></video>
+      <video id="video2" src="https://rodriged.github.io/ArtViewer/SS-SpanishDancer.mp4" preload="auto" loop muted playsinline crossorigin="anonymous"></video>
+      <video id="video3" src="https://rodriged.github.io/ArtViewer/IndianDancer.mp4"   preload="auto" loop muted playsinline crossorigin="anonymous"></video>
+      <video id="video4" src="https://rodriged.github.io/ArtViewer/Hello-whale.mp4"    preload="auto" loop muted playsinline crossorigin="anonymous"></video>
     </a-assets>
 
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-    <!-- Artwork 0 — targetIndex matches video0 and first uploaded photo -->
     <a-entity id="target0" mindar-image-target="targetIndex: 0">
-      <a-plane width="1" height="0.552" position="0 0 0.01"
-        material="src: #video0; shader: flat; opacity: 1"></a-plane>
-      <a-plane width="1.03" height="0.572" position="0 0 0.005"
-        material="color: #b8924a; shader: flat; opacity: 0.5"></a-plane>
+      <a-plane width="1" height="0.552" position="0 0 0.01" material="src: #video0; shader: flat; opacity: 1"></a-plane>
+      <a-plane width="1.03" height="0.572" position="0 0 0.005" material="color: #b8924a; shader: flat; opacity: 0.5"></a-plane>
     </a-entity>
-
-    <!-- Artwork 1 -->
     <a-entity id="target1" mindar-image-target="targetIndex: 1">
-      <a-plane width="1" height="0.552" position="0 0 0.01"
-        material="src: #video1; shader: flat; opacity: 1"></a-plane>
-      <a-plane width="1.03" height="0.572" position="0 0 0.005"
-        material="color: #b8924a; shader: flat; opacity: 0.5"></a-plane>
+      <a-plane width="1" height="0.552" position="0 0 0.01" material="src: #video1; shader: flat; opacity: 1"></a-plane>
+      <a-plane width="1.03" height="0.572" position="0 0 0.005" material="color: #b8924a; shader: flat; opacity: 0.5"></a-plane>
     </a-entity>
-
-    <!-- Artwork 2 -->
     <a-entity id="target2" mindar-image-target="targetIndex: 2">
-      <a-plane width="1" height="0.552" position="0 0 0.01"
-        material="src: #video2; shader: flat; opacity: 1"></a-plane>
-      <a-plane width="1.03" height="0.572" position="0 0 0.005"
-        material="color: #b8924a; shader: flat; opacity: 0.5"></a-plane>
+      <a-plane width="1" height="0.552" position="0 0 0.01" material="src: #video2; shader: flat; opacity: 1"></a-plane>
+      <a-plane width="1.03" height="0.572" position="0 0 0.005" material="color: #b8924a; shader: flat; opacity: 0.5"></a-plane>
     </a-entity>
-
-    <!-- Artwork 3 -->
     <a-entity id="target3" mindar-image-target="targetIndex: 3">
-      <a-plane width="1" height="0.552" position="0 0 0.01"
-        material="src: #video3; shader: flat; opacity: 1"></a-plane>
-      <a-plane width="1.03" height="0.572" position="0 0 0.005"
-        material="color: #b8924a; shader: flat; opacity: 0.5"></a-plane>
+      <a-plane width="1" height="0.552" position="0 0 0.01" material="src: #video3; shader: flat; opacity: 1"></a-plane>
+      <a-plane width="1.03" height="0.572" position="0 0 0.005" material="color: #b8924a; shader: flat; opacity: 0.5"></a-plane>
     </a-entity>
-
-    <!-- Artwork 4 -->
     <a-entity id="target4" mindar-image-target="targetIndex: 4">
-      <a-plane width="1" height="0.552" position="0 0 0.01"
-        material="src: #video4; shader: flat; opacity: 1"></a-plane>
-      <a-plane width="1.03" height="0.572" position="0 0 0.005"
-        material="color: #b8924a; shader: flat; opacity: 0.5"></a-plane>
+      <a-plane width="1" height="0.552" position="0 0 0.01" material="src: #video4; shader: flat; opacity: 1"></a-plane>
+      <a-plane width="1.03" height="0.572" position="0 0 0.005" material="color: #b8924a; shader: flat; opacity: 0.5"></a-plane>
     </a-entity>
-
   </a-scene>
 </div>
 
-<!-- ── FULLSCREEN VIDEO PLAYER ── -->
+<!-- FULLSCREEN VIDEO PLAYER -->
 <div id="videoPlayer">
   <video id="fullscreenVideo" playsinline loop muted></video>
   <div id="videoOverlayTop">
@@ -316,51 +176,72 @@
   </div>
   <div id="videoOverlayBottom">
     <button id="backToScanBtn" onclick="backToScan()">⟵ Scan Another</button>
-    <button id="exitBtn" onclick="closeAR()">✕ Exit</button>
+    <button id="exitBtn" onclick="exitApp()">✕ Exit</button>
   </div>
 </div>
 
-<button id="closeBtn" onclick="closeAR()">✕</button>
+<button id="closeBtn" onclick="exitApp()">✕</button>
 
 <script>
-  /* ═══════════════════════════════════════════════════
-     STEP 4: Update these to match your artworks.
-     Order must match your photo upload order.
-  ═══════════════════════════════════════════════════ */
   const artworks = [
     { title: "Artwork One",   artist: "Artist Name", year: "2024" },
     { title: "Artwork Two",   artist: "Artist Name", year: "2023" },
     { title: "Artwork Three", artist: "Artist Name", year: "2022" },
-    { title: "Artwork Four", artist: "Artist Name", year: "2021" },
-    { title: "Artwork Five", artist: "Artist Name", year: "2020" },
+    { title: "Artwork Four",  artist: "Artist Name", year: "2021" },
+    { title: "Artwork Five",  artist: "Artist Name", year: "2020" },
   ];
 
-  /* ── DOM ── */
-  const landing    = document.getElementById('landing');
-  const arWrapper  = document.getElementById('ar-wrapper');
-  const arScene    = document.getElementById('arScene');
-  const statusPill = document.getElementById('statusPill');
-  const scanFrame  = document.getElementById('scanFrame');
-  const artInfo    = document.getElementById('artInfo');
-  const artTitle   = document.getElementById('artTitle');
-  const artMeta    = document.getElementById('artMeta');
-  const artDots    = document.getElementById('artDots');
-  const closeBtn   = document.getElementById('closeBtn');
+  const landing         = document.getElementById('landing');
+  const arWrapper       = document.getElementById('ar-wrapper');
+  const arScene         = document.getElementById('arScene');
+  const statusPill      = document.getElementById('statusPill');
+  const scanFrame       = document.getElementById('scanFrame');
+  const artInfo         = document.getElementById('artInfo');
+  const artDots         = document.getElementById('artDots');
+  const closeBtn        = document.getElementById('closeBtn');
+  const videoPlayer     = document.getElementById('videoPlayer');
+  const fullscreenVideo = document.getElementById('fullscreenVideo');
+  const overlayTitle    = document.getElementById('videoOverlayTitle');
+  const overlayMeta     = document.getElementById('videoOverlayMeta');
 
-  /* ── Badge ── */
   document.getElementById('artCount').textContent =
     artworks.length + ' artwork' + (artworks.length !== 1 ? 's' : '') + ' registered';
 
-  /* ── Build dots ── */
   artworks.forEach((_, i) => {
     const d = document.createElement('div');
-    d.className = 'dot';
-    d.id = 'dot' + i;
+    d.className = 'dot'; d.id = 'dot' + i;
     artDots.appendChild(d);
   });
 
   let activeIndex = -1;
   let listenersAttached = false;
+
+  /* ── helpers ── */
+  function getMindAR() {
+    return arScene.systems['mindar-image-system'] || arScene.systems['mindar-image'] || null;
+  }
+
+  function stopVideo() {
+    fullscreenVideo.pause();
+    fullscreenVideo.src = '';
+    videoPlayer.classList.remove('active');
+    if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+    else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+  }
+
+  function resetUI() {
+    statusPill.textContent = 'Scanning gallery…';
+    statusPill.classList.remove('found');
+    artInfo.classList.remove('visible');
+    scanFrame.style.opacity = '1';
+    artworks.forEach((_, i) => {
+      const d = document.getElementById('dot' + i);
+      if (d) d.classList.remove('active');
+      const v = document.getElementById('video' + i);
+      if (v) v.pause();
+    });
+    activeIndex = -1;
+  }
 
   /* ── Start AR ── */
   function startAR() {
@@ -369,41 +250,22 @@
     closeBtn.style.display  = 'flex';
     arScene.style.display   = 'block';
 
-    /* Attach listeners first */
-    if (arScene.hasLoaded) {
-      attachListeners();
-    } else {
-      arScene.addEventListener('loaded', attachListeners);
-    }
+    if (arScene.hasLoaded) attachListeners();
+    else arScene.addEventListener('loaded', attachListeners);
 
-    /* Give the scene 300ms to become visible then start MindAR */
     setTimeout(() => {
-      const systems = arScene.systems;
-      console.log('%c🟠 Available A-Frame systems:', 'color:#b8860b', Object.keys(systems));
-
-      /* Try both known MindAR system key names */
-      const mindar = systems['mindar-image-system'] || systems['mindar-image'];
-
-      if (mindar && typeof mindar.start === 'function') {
-        console.log('%c🟠 Calling mindar.start()', 'color:#b8860b;font-weight:bold');
-        mindar.start();
-      } else {
-        console.warn('⚠️ MindAR system not found — check system keys above');
-      }
+      const mindar = getMindAR();
+      if (mindar && typeof mindar.start === 'function') mindar.start();
     }, 300);
   }
 
-  /* ── Attach per-target event listeners ── */
   function attachListeners() {
     if (listenersAttached) return;
     listenersAttached = true;
 
     artworks.forEach((art, i) => {
       const entity = document.getElementById('target' + i);
-      if (!entity) {
-        console.warn('No entity found for target' + i);
-        return;
-      }
+      if (!entity) return;
 
       entity.addEventListener('targetFound', () => {
         console.log('Target found:', i);
@@ -413,42 +275,35 @@
 
       entity.addEventListener('targetLost', () => {
         console.log('Target lost:', i);
-        /* Don't stop fullscreen on lost — let user watch the full video */
+        /* Video keeps playing after target lost — user watches the full video */
       });
     });
   }
 
-  /* ── Fullscreen video player ── */
-  const videoPlayer       = document.getElementById('videoPlayer');
-  const fullscreenVideo   = document.getElementById('fullscreenVideo');
-  const videoOverlayTitle = document.getElementById('videoOverlayTitle');
-  const videoOverlayMeta  = document.getElementById('videoOverlayMeta');
-
+  /* ── Show fullscreen video ── */
   function showFullscreenVideo(i) {
     const art = artworks[i];
     const src = document.getElementById('video' + i)?.getAttribute('src');
     if (!src) return;
 
-    /* Stop MindAR camera to save battery while watching */
-    const mindar = arScene.systems['mindar-image-system'];
-    if (mindar) mindar.pause();
+    /* Pause MindAR camera */
+    const mindar = getMindAR();
+    if (mindar && typeof mindar.pause === 'function') mindar.pause();
 
-    /* Hide AR, show fullscreen player */
+    /* Hide scanner, show video player */
     arWrapper.style.display = 'none';
     closeBtn.style.display  = 'none';
     videoPlayer.classList.add('active');
 
-    /* Set video source and play */
+    /* Play video */
     fullscreenVideo.src = src;
     fullscreenVideo.muted = true;
     fullscreenVideo.currentTime = 0;
     fullscreenVideo.play().catch(err => console.warn('play blocked:', err));
 
-    /* Update overlay info */
-    videoOverlayTitle.textContent = art.title;
-    videoOverlayMeta.textContent  = art.artist + ' · ' + art.year;
+    overlayTitle.textContent = art.title;
+    overlayMeta.textContent  = art.artist + ' · ' + art.year;
 
-    /* Try native fullscreen (works on most Android Chrome) */
     if (fullscreenVideo.requestFullscreen) {
       fullscreenVideo.requestFullscreen().catch(() => {});
     } else if (fullscreenVideo.webkitRequestFullscreen) {
@@ -456,97 +311,57 @@
     }
   }
 
+  /* ── Scan Another — resume camera ── */
   function backToScan() {
-    /* Stop fullscreen video */
-    fullscreenVideo.pause();
-    fullscreenVideo.src = '';
-    videoPlayer.classList.remove('active');
+    stopVideo();
 
-    /* Exit native fullscreen if active */
-    if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
-    else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+    const mindar = getMindAR();
+    if (mindar && typeof mindar.unpause === 'function') mindar.unpause();
 
-    /* Resume MindAR camera */
-    const mindar = arScene.systems['mindar-image-system'];
-    if (mindar) mindar.unpause();
-
-    /* Show AR wrapper again */
     arWrapper.style.display = 'block';
     closeBtn.style.display  = 'flex';
-    statusPill.textContent  = 'Scanning gallery…';
-    statusPill.classList.remove('found');
-    scanFrame.style.opacity = '1';
-    activeIndex = -1;
+    resetUI();
   }
 
-  function pauseVideo(i) {
-    const v = document.getElementById('video' + i);
-    if (v) v.pause();
-  }
+  /* ── Exit — stop everything and return to landing ── */
+  function exitApp() {
+    /* 1. Stop fullscreen video */
+    stopVideo();
 
-  function setDot(i, active) {
-    const d = document.getElementById('dot' + i);
-    if (d) d.classList.toggle('active', active);
-  }
+    /* 2. Stop MindAR completely */
+    const mindar = getMindAR();
+    if (mindar) {
+      try { mindar.stop(); } catch(e) {}
+    }
 
-  /* ── Close ── */
-  function closeAR() {
-    /* Stop MindAR cleanly */
-    const mindar = arScene.systems['mindar-image-system'];
-    if (mindar) mindar.stop();
-
-    artworks.forEach((_, i) => pauseVideo(i));
+    /* 3. Hide all AR/video layers */
+    videoPlayer.classList.remove('active');
     arWrapper.style.display = 'none';
     closeBtn.style.display  = 'none';
-    landing.style.display   = 'flex';
-    statusPill.textContent  = 'Scanning gallery…';
-    statusPill.classList.remove('found');
-    artInfo.classList.remove('visible');
-    scanFrame.style.opacity = '1';
-    artworks.forEach((_, i) => setDot(i, false));
-    activeIndex = -1;
+
+    /* 4. Reset state */
+    resetUI();
+    listenersAttached = false;
+
+    /* 5. Show landing */
+    landing.style.display = 'flex';
   }
 
-  /* ════════════════════════════════════════
-     DEBUG — open DevTools console to see output
-  ════════════════════════════════════════ */
-  (function debugAR() {
+  /* ── Debug ── */
+  (function() {
     const scene = document.getElementById('arScene');
-
-    scene.addEventListener('arReady', () => {
-      console.log('%c✅ MindAR READY — camera active and scanning', 'color:green;font-size:14px;font-weight:bold');
-    });
-
-    scene.addEventListener('arError', (e) => {
-      console.error('%c❌ MindAR ERROR:', 'color:red;font-size:14px;font-weight:bold', e.detail);
-    });
-
+    scene.addEventListener('arReady', () =>
+      console.log('%c✅ MindAR READY', 'color:green;font-weight:bold'));
+    scene.addEventListener('arError', e =>
+      console.error('%c❌ MindAR ERROR', 'color:red', e.detail));
     scene.addEventListener('loaded', () => {
-      console.log('%c🔵 A-Frame scene LOADED', 'color:blue;font-size:14px;font-weight:bold');
-
-      const targets = scene.querySelectorAll('[mindar-image-target]');
-      console.log('   Entities found:', targets.length);
-      targets.forEach((t, i) => {
-        console.log('   Entity', i, '| id:', t.id, '| attr:', t.getAttribute('mindar-image-target'));
-        t.addEventListener('targetFound', () =>
-          console.log('%c🎯 TARGET FOUND — index ' + i, 'color:orange;font-size:14px;font-weight:bold'));
-        t.addEventListener('targetLost',  () =>
-          console.log('%c💨 TARGET LOST — index '  + i, 'color:gray'));
-      });
-
-      const videos = scene.querySelectorAll('video');
-      console.log('   Videos found:', videos.length);
-      videos.forEach((v, i) =>
-        console.log('   Video', i, '| src:', v.getAttribute('src'), '| readyState:', v.readyState));
-
+      console.log('%c🔵 Scene loaded', 'color:blue;font-weight:bold');
       const mindarAttr = scene.getAttribute('mindar-image');
-      console.log('   mindar-image attr:', mindarAttr);
-      console.log('   .mind src:', mindarAttr ? mindarAttr.imageTargetSrc : '⚠️ NOT FOUND');
+      console.log('   maxTrack:', mindarAttr?.maxTrack);
+      console.log('   .mind src:', mindarAttr?.imageTargetSrc);
     });
-
-    console.log('%c🟡 Debug listeners attached — click "Enter the Gallery" to start', 'color:#b8860b;font-size:13px');
+    console.log('%c🟡 Ready — click Enter the Gallery', 'color:#b8860b');
   })();
 </script>
-
 </body>
 </html>
