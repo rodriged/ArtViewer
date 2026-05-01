@@ -156,7 +156,7 @@
 
   <a-scene
     id="arScene"
-    mindar-image="imageTargetSrc: https://rodriged.github.io/ArtViewer/targets.mind; autoStart: false; uiLoading: no; uiScanning: no; uiError: no; maxTrack: 5; warmupTolerance: 5; missTolerance: 5;"
+    mindar-image="imageTargetSrc: https://rodriged.github.io/ArtViewer/targets.mind; autoStart: false; uiLoading: no; uiScanning: no; uiError: no; maxTrack: 5; warmupTolerance: 1; missTolerance: 10;"
     color-space="sRGB"
     renderer="colorManagement: true; physicallyCorrectLights: false;"
     vr-mode-ui="enabled: false"
@@ -327,75 +327,79 @@
   }
 
   /* ── Show fullscreen video — Android + iOS safe ── */
+  let videoLaunching = false; /* guard against double-trigger */
+
   function showFullscreenVideo(i) {
+    /* Prevent double-fire from multiple targetFound events */
+    if (videoLaunching) return;
+    videoLaunching = true;
+
     const art = artworks[i];
     const src = document.getElementById('video' + i)?.getAttribute('src');
-    if (!src) return;
+    if (!src) { videoLaunching = false; return; }
 
-    /* Pause MindAR camera */
+    /* Pause MindAR immediately so targetLost can't fire during launch */
     const mindar = getMindAR();
     if (mindar && typeof mindar.pause === 'function') mindar.pause();
 
-    /* Hide scanner, show video player */
+    /* Hide scanner, show video player immediately — no delay */
     arWrapper.style.display = 'none';
     closeBtn.style.display  = 'none';
-
-    /* Reset video element completely before loading new src
-       Android Chrome needs this to avoid stale decoder state */
-    fullscreenVideo.pause();
-    fullscreenVideo.removeAttribute('src');
-    fullscreenVideo.load();
-
-    /* Set attributes Android needs explicitly */
-    fullscreenVideo.muted    = true;
-    fullscreenVideo.loop     = true;
-    fullscreenVideo.setAttribute('playsinline', '');
-    fullscreenVideo.setAttribute('webkit-playsinline', '');
-
-    /* Show player BEFORE setting src so layout is ready when video decodes */
     videoPlayer.classList.add('active');
 
     overlayTitle.textContent = art.title;
     overlayMeta.textContent  = art.artist + ' · ' + art.year;
 
-    /* Small delay lets the DOM paint before we start decoding */
-    setTimeout(() => {
-      fullscreenVideo.src = src;
+    /* Reset video element for Android stale decoder fix */
+    fullscreenVideo.pause();
+    fullscreenVideo.removeAttribute('src');
+    fullscreenVideo.load();
 
-      /* canplay fires when first frame is ready — safer than play() directly */
-      const onCanPlay = () => {
-        fullscreenVideo.removeEventListener('canplay', onCanPlay);
-        fullscreenVideo.play().catch(err => {
-          console.warn('play() blocked, retrying muted:', err);
+    fullscreenVideo.muted    = true;
+    fullscreenVideo.loop     = true;
+    fullscreenVideo.setAttribute('playsinline', '');
+    fullscreenVideo.setAttribute('webkit-playsinline', '');
+
+    /* Set src and play */
+    fullscreenVideo.src = src;
+
+    const onCanPlay = () => {
+      fullscreenVideo.removeEventListener('canplay', onCanPlay);
+      fullscreenVideo.play()
+        .then(() => { videoLaunching = false; })
+        .catch(err => {
+          console.warn('play() blocked, retrying:', err);
           fullscreenVideo.muted = true;
-          fullscreenVideo.play().catch(e => console.error('play failed:', e));
+          fullscreenVideo.play()
+            .then(() => { videoLaunching = false; })
+            .catch(e => { console.error('play failed:', e); videoLaunching = false; });
         });
-      };
-      fullscreenVideo.addEventListener('canplay', onCanPlay);
-      fullscreenVideo.load();
+    };
+    fullscreenVideo.addEventListener('canplay', onCanPlay);
+    fullscreenVideo.load();
 
-      /* Fallback: if canplay never fires within 2s, force play anyway */
-      setTimeout(() => {
-        if (fullscreenVideo.paused) {
-          fullscreenVideo.play().catch(() => {});
-        }
-      }, 2000);
-
-      /* Skip native fullscreen on Android — it causes blank screen issues.
-         Our CSS fullscreen (position:fixed inset:0) works better on Android. */
-      const isAndroid = /android/i.test(navigator.userAgent);
-      if (!isAndroid) {
-        if (fullscreenVideo.requestFullscreen) {
-          fullscreenVideo.requestFullscreen().catch(() => {});
-        } else if (fullscreenVideo.webkitRequestFullscreen) {
-          fullscreenVideo.webkitRequestFullscreen();
-        }
+    /* Fallback if canplay never fires within 3s */
+    setTimeout(() => {
+      if (fullscreenVideo.paused) {
+        fullscreenVideo.play().catch(() => {});
+        videoLaunching = false;
       }
-    }, 100);
+    }, 3000);
+
+    /* iOS only — native fullscreen (Android uses CSS fullscreen) */
+    const isAndroid = /android/i.test(navigator.userAgent);
+    if (!isAndroid) {
+      if (fullscreenVideo.requestFullscreen) {
+        fullscreenVideo.requestFullscreen().catch(() => {});
+      } else if (fullscreenVideo.webkitRequestFullscreen) {
+        fullscreenVideo.webkitRequestFullscreen();
+      }
+    }
   }
 
   /* ── Scan Another — resume camera ── */
   function backToScan() {
+    videoLaunching = false;
     stopVideo();
 
     const mindar = getMindAR();
@@ -431,6 +435,7 @@
     closeBtn.style.display  = 'none';
 
     /* 6. Reset state */
+    videoLaunching = false;
     resetUI();
     listenersAttached = false; /* reset so listeners re-attach on next entry */
 
