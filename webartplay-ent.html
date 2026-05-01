@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+<title>Scan-to-Play AR Platform</title>
+
+<script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
+
+<style>
+
+body {
+  margin: 0;
+  overflow: hidden;
+  background: black;
+  font-family: system-ui;
+}
+
+/* LANDING */
+#landing {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  color: white;
+}
+
+/* AR */
+#ar-wrapper {
+  position: fixed;
+  inset: 0;
+  display: none;
+}
+
+#arScene {
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: 0.5s;
+}
+
+/* VIDEO PLAYER */
+#videoLayer {
+  position: fixed;
+  inset: 0;
+  background: black;
+  display: none;
+  z-index: 9999;
+}
+
+#videoLayer.active {
+  display: block;
+}
+
+video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* CONTROLS */
+#controls {
+  position: absolute;
+  bottom: 15px;
+  width: 100%;
+  display: flex;
+  justify-content: space-around;
+  z-index: 10;
+}
+
+button {
+  padding: 12px 16px;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid white;
+  color: white;
+  font-size: 14px;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<!-- LANDING -->
+<div id="landing">
+  <h1>Scan AR Experience</h1>
+  <button id="startBtn">Start</button>
+</div>
+
+<!-- AR -->
+<div id="ar-wrapper">
+
+  <a-scene
+    id="arScene"
+    embedded
+    vr-mode-ui="enabled:false"
+    mindar-image="imageTargetSrc:https://rodriged.github.io/ArtViewer/targets.mind; autoStart:false;"
+  >
+
+    <a-assets>
+      <video id="v0" src="https://rodriged.github.io/ArtViewer/Lion-a.mp4" playsinline loop></video>
+      <video id="v1" src="https://rodriged.github.io/ArtViewer/FlamingPeacock.mp4" playsinline loop></video>
+      <video id="v2" src="https://rodriged.github.io/ArtViewer/SS-SpanishDancer.mp4" playsinline loop></video>
+      <video id="v3" src="https://rodriged.github.io/ArtViewer/IndianDancer.mp4" playsinline loop></video>
+      <video id="v4" src="https://rodriged.github.io/ArtViewer/Hello-whale.mp4" playsinline loop></video>
+    </a-assets>
+
+    <a-camera></a-camera>
+
+    <a-entity id="t0" mindar-image-target="targetIndex:0"></a-entity>
+    <a-entity id="t1" mindar-image-target="targetIndex:1"></a-entity>
+    <a-entity id="t2" mindar-image-target="targetIndex:2"></a-entity>
+    <a-entity id="t3" mindar-image-target="targetIndex:3"></a-entity>
+    <a-entity id="t4" mindar-image-target="targetIndex:4"></a-entity>
+
+  </a-scene>
+
+</div>
+
+<!-- VIDEO -->
+<div id="videoLayer">
+
+  <video id="player" playsinline controls></video>
+
+  <div id="controls">
+
+    <button onclick="replay()">Replay</button>
+    <button onclick="scanNext()">Scan Next</button>
+    <button onclick="exitApp()">Exit</button>
+
+  </div>
+
+</div>
+
+<script>
+
+/* =========================
+   CORE STATE
+========================= */
+
+let mindar = null;
+let currentIndex = null;
+
+/* =========================
+   START
+========================= */
+
+document.getElementById("startBtn").onclick = async () => {
+
+  document.getElementById("landing").style.display = "none";
+  document.getElementById("ar-wrapper").style.display = "block";
+
+  await waitScene();
+
+  mindar = document.getElementById("arScene")
+    .systems["mindar-image-system"];
+
+  await mindar.start();
+
+  document.getElementById("arScene").style.opacity = "1";
+
+  attachTargets();
+
+};
+
+/* =========================
+   SCENE READY
+========================= */
+
+function waitScene() {
+  return new Promise(res => {
+    if (document.getElementById("arScene").hasLoaded) return res();
+    document.getElementById("arScene").addEventListener("loaded", res);
+  });
+}
+
+/* =========================
+   TARGETS
+========================= */
+
+function attachTargets() {
+
+  for (let i = 0; i < 5; i++) {
+
+    document.getElementById("t" + i)
+      .addEventListener("targetFound", () => play(i));
+
+  }
+
+}
+
+/* =========================
+   PLAY MATCHING ART ONLY
+========================= */
+
+async function play(i) {
+
+  currentIndex = i;
+
+  await mindar.stop();
+
+  document.getElementById("ar-wrapper").style.display = "none";
+
+  const videoLayer = document.getElementById("videoLayer");
+  const player = document.getElementById("player");
+
+  videoLayer.classList.add("active");
+
+  const vid = document.getElementById("v" + i);
+
+  player.src = vid.src;
+  player.currentTime = 0;
+
+  try {
+    await player.play();
+  } catch (e) {
+    console.warn("Autoplay blocked");
+  }
+
+}
+
+/* =========================
+   REPLAY
+========================= */
+
+function replay() {
+
+  const player = document.getElementById("player");
+
+  player.currentTime = 0;
+  player.play();
+
+}
+
+/* =========================
+   SCAN NEXT (RESET AR MODE)
+========================= */
+
+async function scanNext() {
+
+  const player = document.getElementById("player");
+
+  player.pause();
+  player.removeAttribute("src");
+
+  document.getElementById("videoLayer").classList.remove("active");
+  document.getElementById("ar-wrapper").style.display = "block";
+
+  await mindar.start();
+
+}
+
+/* =========================
+   EXIT
+========================= */
+
+async function exitApp() {
+
+  const player = document.getElementById("player");
+
+  player.pause();
+  player.removeAttribute("src");
+
+  document.getElementById("videoLayer").classList.remove("active");
+  document.getElementById("ar-wrapper").style.display = "none";
+  document.getElementById("landing").style.display = "flex";
+
+  await mindar.stop();
+
+}
+
+</script>
+
+</body>
+</html>
