@@ -2,195 +2,90 @@
 <html lang="en">
 
 <head>
-
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-<meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="mobile-web-app-capable" content="yes" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-<title>ArtPlay AR Analytics</title>
+<title>ArtPlay AR Stable</title>
 
-<!-- AFRAME -->
 <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-
-<!-- MINDAR -->
 <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
 
-<!-- FIREBASE -->
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-
 <style>
-
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;600&family=DM+Mono:wght@300;400&display=swap');
-
-:root{
-  --bg:#0e0e0e;
-  --gold:#b8924a;
-  --gold2:#d4ad72;
-  --text:#f2ede4;
+body {
+  margin: 0;
+  overflow: hidden;
+  font-family: sans-serif;
+  background: black;
+  color: white;
 }
 
-*{margin:0;padding:0;box-sizing:border-box;}
-
-html,body{
-  width:100%;
-  height:100%;
-  overflow:hidden;
-  background:black;
-  color:var(--text);
-  font-family:'DM Mono', monospace;
+#landing {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 
-/* LANDING */
-#landing{
-  position:fixed;
-  inset:0;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  text-align:center;
-  background:#0e0e0e;
-  z-index:100;
+button {
+  padding: 1rem 2rem;
+  font-size: 16px;
+  cursor: pointer;
 }
 
-.logo{
-  font-family:'Cormorant Garamond', serif;
-  font-size:clamp(3rem,10vw,5rem);
-  letter-spacing:.15em;
-  font-weight:300;
+#ar-wrapper {
+  display: none;
+  position: fixed;
+  inset: 0;
 }
 
-.logo span{color:var(--gold);font-style:italic;}
-
-.sub{
-  margin-top:.6rem;
-  margin-bottom:2rem;
-  font-size:.7rem;
-  letter-spacing:.35em;
-  text-transform:uppercase;
-  color:rgba(255,255,255,.45);
+#arScene {
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 0.5s;
 }
 
-#startBtn{
-  background:transparent;
-  border:1px solid var(--gold);
-  color:var(--gold);
-  padding:1rem 2rem;
-  font-size:.7rem;
-  letter-spacing:.2em;
-  text-transform:uppercase;
+#status {
+  margin-top: 10px;
+  font-size: 12px;
+  opacity: 0.7;
 }
 
-/* AR */
-#ar-wrapper{
-  position:fixed;
-  inset:0;
-  display:none;
-  background:black;
+/* VIDEO */
+#videoPlayer {
+  position: fixed;
+  inset: 0;
+  display: none;
+  background: black;
+  z-index: 9999;
 }
 
-#arScene{
-  position:fixed;
-  inset:0;
-  width:100%;
-  height:100%;
-  opacity:0;
-  transition:opacity .5s;
+#videoPlayer.active {
+  display: block;
 }
 
-/* HUD */
-#hud{
-  position:fixed;
-  top:0;
-  left:0;
-  right:0;
-  padding:1rem;
-  display:flex;
-  justify-content:space-between;
-  background:linear-gradient(to bottom, rgba(0,0,0,.7), transparent);
-  z-index:50;
+video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
-/* SCAN */
-#scanBox{
-  position:fixed;
-  inset:0;
-  display:flex;
-  align-items:center;
-  justify-content:center;
+#hud {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 10;
 }
 
-.scanFrame{
-  width:min(70vw,300px);
-  height:min(70vw,300px);
-  border:2px solid var(--gold);
+#bottom {
+  position: absolute;
+  bottom: 10px;
+  width: 100%;
+  display: flex;
+  justify-content: space-around;
 }
-
-/* ANALYTICS */
-#analyticsPanel{
-  position:fixed;
-  bottom:10px;
-  left:10px;
-  z-index:500;
-  background:rgba(0,0,0,.65);
-  padding:10px 14px;
-  border-radius:10px;
-  font-size:11px;
-  backdrop-filter:blur(6px);
-}
-
-/* VIDEO PLAYER */
-#videoPlayer{
-  position:fixed;
-  inset:0;
-  z-index:9999;
-  background:black;
-  display:none;
-}
-
-#videoPlayer.active{display:block;}
-
-#fullscreenVideo{
-  position:absolute;
-  inset:0;
-  width:100%;
-  height:100%;
-  object-fit:contain;
-}
-
-#videoTop{
-  position:absolute;
-  top:0;
-  left:0;
-  right:0;
-  padding:1rem;
-  background:linear-gradient(to bottom, rgba(0,0,0,.8), transparent);
-  z-index:10;
-}
-
-#videoBottom{
-  position:absolute;
-  bottom:0;
-  left:0;
-  right:0;
-  display:flex;
-  gap:1rem;
-  padding:1rem;
-  background:linear-gradient(to top, rgba(0,0,0,.9), transparent);
-  z-index:10;
-}
-
-.btn{
-  flex:1;
-  border:1px solid #b8924a;
-  background:rgba(0,0,0,.6);
-  color:#b8924a;
-  padding:1rem;
-  text-transform:uppercase;
-}
-
 </style>
 
 </head>
@@ -199,22 +94,13 @@ html,body{
 
 <!-- LANDING -->
 <div id="landing">
-  <div class="logo">Art<span>Play</span></div>
-  <div class="sub">Augmented Reality Gallery</div>
-  <button id="startBtn">Enter Gallery</button>
+  <h1>ArtPlay AR</h1>
+  <button id="startBtn">Start AR</button>
+  <div id="status">Ready</div>
 </div>
 
 <!-- AR -->
 <div id="ar-wrapper">
-
-  <div id="hud">
-    <div>ArtPlay</div>
-    <div>Scanning</div>
-  </div>
-
-  <div id="scanBox">
-    <div class="scanFrame"></div>
-  </div>
 
   <a-scene
     id="arScene"
@@ -224,96 +110,198 @@ html,body{
   >
 
     <a-assets>
-      <video id="video0" src="https://rodriged.github.io/ArtViewer/Lion-a.mp4" loop></video>
-      <video id="video1" src="https://rodriged.github.io/ArtViewer/FlamingPeacock.mp4" loop></video>
-      <video id="video2" src="https://rodriged.github.io/ArtViewer/SS-SpanishDancer.mp4" loop></video>
-      <video id="video3" src="https://rodriged.github.io/ArtViewer/IndianDancer.mp4" loop></video>
-      <video id="video4" src="https://rodriged.github.io/ArtViewer/Hello-whale.mp4" loop></video>
+      <video id="video0" src="https://rodriged.github.io/ArtViewer/Lion-a.mp4" loop playsinline></video>
+      <video id="video1" src="https://rodriged.github.io/ArtViewer/FlamingPeacock.mp4" loop playsinline></video>
+      <video id="video2" src="https://rodriged.github.io/ArtViewer/SS-SpanishDancer.mp4" loop playsinline></video>
+      <video id="video3" src="https://rodriged.github.io/ArtViewer/IndianDancer.mp4" loop playsinline></video>
+      <video id="video4" src="https://rodriged.github.io/ArtViewer/Hello-whale.mp4" loop playsinline></video>
     </a-assets>
 
     <a-camera></a-camera>
 
-    <a-entity id="target0" mindar-image-target="targetIndex:0"></a-entity>
-    <a-entity id="target1" mindar-image-target="targetIndex:1"></a-entity>
-    <a-entity id="target2" mindar-image-target="targetIndex:2"></a-entity>
-    <a-entity id="target3" mindar-image-target="targetIndex:3"></a-entity>
-    <a-entity id="target4" mindar-image-target="targetIndex:4"></a-entity>
+    <a-entity id="t0" mindar-image-target="targetIndex:0"></a-entity>
+    <a-entity id="t1" mindar-image-target="targetIndex:1"></a-entity>
+    <a-entity id="t2" mindar-image-target="targetIndex:2"></a-entity>
+    <a-entity id="t3" mindar-image-target="targetIndex:3"></a-entity>
+    <a-entity id="t4" mindar-image-target="targetIndex:4"></a-entity>
 
   </a-scene>
 
 </div>
 
-<!-- VIDEO PLAYER (FIXED LOCATION) -->
+<!-- VIDEO PLAYER -->
 <div id="videoPlayer">
 
-  <video id="fullscreenVideo" playsinline webkit-playsinline controls></video>
-
-  <div id="videoTop">
-    <div id="videoTitle"></div>
-    <div id="videoMeta"></div>
+  <div id="hud">
+    <div id="title"></div>
   </div>
 
-  <div id="videoBottom">
-    <button class="btn" onclick="backToScan()">Scan Another</button>
-    <button class="btn" onclick="closeAR()">Exit</button>
+  <video id="video" playsinline webkit-playsinline controls></video>
+
+  <div id="bottom">
+    <button onclick="backToScan()">Back</button>
+    <button onclick="closeAR()">Exit</button>
   </div>
 
-</div>
-
-<!-- ANALYTICS -->
-<div id="analyticsPanel">
-  <div>Daily: <span id="dailyUsers">0</span></div>
-  <div>Total: <span id="totalVisits">0</span></div>
-  <div>Location: <span id="userLocation">Unknown</span></div>
 </div>
 
 <script>
-const startBtn=document.getElementById("startBtn");
-const landing=document.getElementById("landing");
-const arWrapper=document.getElementById("ar-wrapper");
-const arScene=document.getElementById("arScene");
-const videoPlayer=document.getElementById("videoPlayer");
-const fullscreenVid=document.getElementById("fullscreenVideo");
-const videoTitle=document.getElementById("videoTitle");
-const videoMeta=document.getElementById("videoMeta");
 
-const artworks=[
-  {title:"Artwork One",artist:"Artist",year:"2024"},
-  {title:"Artwork Two",artist:"Artist",year:"2023"},
-  {title:"Artwork Three",artist:"Artist",year:"2022"},
-  {title:"Artwork Four",artist:"Artist",year:"2021"},
-  {title:"Artwork Five",artist:"Artist",year:"2020"}
-];
+const startBtn = document.getElementById("startBtn");
+const landing = document.getElementById("landing");
+const arWrapper = document.getElementById("ar-wrapper");
+const arScene = document.getElementById("arScene");
+const statusText = document.getElementById("status");
 
-startBtn.onclick=async()=>{
-  landing.style.display="none";
-  arWrapper.style.display="block";
-  arScene.style.opacity="1";
+const videoPlayer = document.getElementById("videoPlayer");
+const video = document.getElementById("video");
+const title = document.getElementById("title");
+
+let mindarSystem = null;
+let ready = false;
+
+/* =========================
+   SAFE START FLOW
+========================= */
+
+startBtn.onclick = async () => {
+
+  statusText.textContent = "Initializing camera...";
+
+  try {
+
+    // 1. Show AR container FIRST (important for iOS)
+    landing.style.display = "none";
+    arWrapper.style.display = "block";
+
+    // 2. Wait for A-Frame scene to be ready
+    await waitForScene();
+
+    // 3. Wait for MindAR system
+    mindarSystem = arScene.systems["mindar-image-system"];
+
+    if (!mindarSystem) {
+      throw new Error("MindAR not ready");
+    }
+
+    // 4. Start AR (THIS is where camera activates)
+    await mindarSystem.start();
+
+    arScene.style.opacity = "1";
+
+    attachTargets();
+
+    statusText.textContent = "Camera active";
+
+    ready = true;
+
+  } catch (err) {
+
+    console.error(err);
+    alert("Failed to start AR / camera");
+
+  }
 };
 
-function showVideo(i){
-  const art=artworks[i];
-  const vid=document.getElementById("video"+i);
+/* =========================
+   WAIT FOR SCENE
+========================= */
+
+function waitForScene() {
+  return new Promise(resolve => {
+
+    if (arScene.hasLoaded) {
+      resolve();
+      return;
+    }
+
+    arScene.addEventListener("loaded", () => {
+      resolve();
+    });
+
+  });
+}
+
+/* =========================
+   TARGETS
+========================= */
+
+function attachTargets() {
+
+  const videos = document.querySelectorAll("video");
+
+  for (let i = 0; i < 5; i++) {
+
+    const target = document.getElementById("t" + i);
+
+    target.addEventListener("targetFound", () => {
+      playVideo(i);
+    });
+
+  }
+
+}
+
+/* =========================
+   VIDEO PLAY
+========================= */
+
+function playVideo(i) {
+
+  const vid = document.getElementById("video" + i);
+
+  title.textContent = "Artwork " + (i + 1);
 
   videoPlayer.classList.add("active");
 
-  videoTitle.textContent=art.title;
-  videoMeta.textContent=`${art.artist} · ${art.year}`;
+  video.src = vid.src;
+  video.muted = false;
 
-  fullscreenVid.src=vid.src;
-  fullscreenVid.play();
+  video.play().catch(e => {
+    console.log("Autoplay blocked:", e);
+  });
+
 }
 
-function backToScan(){
+/* =========================
+   BACK
+========================= */
+
+async function backToScan() {
+
+  video.pause();
+  video.removeAttribute("src");
+
   videoPlayer.classList.remove("active");
-  arWrapper.style.display="block";
+
+  arWrapper.style.display = "block";
+
+  if (mindarSystem) {
+    await mindarSystem.start();
+  }
+
 }
 
-function closeAR(){
+/* =========================
+   EXIT
+========================= */
+
+async function closeAR() {
+
+  video.pause();
+  video.removeAttribute("src");
+
   videoPlayer.classList.remove("active");
-  arWrapper.style.display="none";
-  landing.style.display="flex";
+
+  arWrapper.style.display = "none";
+  landing.style.display = "flex";
+
+  if (mindarSystem) {
+    await mindarSystem.stop();
+  }
+
 }
+
 </script>
 
 </body>
