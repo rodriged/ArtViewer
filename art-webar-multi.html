@@ -80,7 +80,20 @@
     /* ── FULLSCREEN VIDEO PLAYER ── */
     #videoPlayer { display: none; position: fixed; inset: 0; z-index: 200; background: #000; flex-direction: column; align-items: center; justify-content: center; }
     #videoPlayer.active { display: flex; }
-    #fullscreenVideo { width: 100%; height: 100%; object-fit: contain; background: #000; }
+    #fullscreenVideo {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      /* object-fit:contain breaks on some Android GPU drivers — use manual centering */
+      object-fit: contain;
+      /* Force GPU layer for Android — fixes blank/line rendering bug */
+      transform: translateZ(0);
+      -webkit-transform: translateZ(0);
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      background: #000;
+    }
 
     #videoOverlayTop { position: absolute; top: 0; left: 0; right: 0; padding: 1.2rem 1.5rem; background: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent); display: flex; align-items: center; justify-content: space-between; pointer-events: none; }
     #videoOverlayTitle { font-family: 'Cormorant Garamond', serif; font-size: 1rem; font-weight: 300; letter-spacing: 0.08em; color: var(--parchment); }
@@ -133,11 +146,16 @@
     style="display:none"
   >
     <a-assets>
-      <video id="video0" src="https://rodriged.github.io/ArtViewer/Lion-a.mp4"         preload="auto" loop muted playsinline crossorigin="anonymous"></video>
-      <video id="video1" src="https://rodriged.github.io/ArtViewer/FlamingPeacock.mp4" preload="auto" loop muted playsinline crossorigin="anonymous"></video>
-      <video id="video2" src="https://rodriged.github.io/ArtViewer/SS-SpanishDancer.mp4" preload="auto" loop muted playsinline crossorigin="anonymous"></video>
-      <video id="video3" src="https://rodriged.github.io/ArtViewer/IndianDancer.mp4"   preload="auto" loop muted playsinline crossorigin="anonymous"></video>
-      <video id="video4" src="https://rodriged.github.io/ArtViewer/Hello-whale.mp4"    preload="auto" loop muted playsinline crossorigin="anonymous"></video>
+      <video id="video0" src="https://rodriged.github.io/ArtViewer/Lion-a.mp4"
+        preload="auto" loop muted playsinline webkit-playsinline></video>
+      <video id="video1" src="https://rodriged.github.io/ArtViewer/FlamingPeacock.mp4"
+        preload="auto" loop muted playsinline webkit-playsinline></video>
+      <video id="video2" src="https://rodriged.github.io/ArtViewer/SS-SpanishDancer.mp4"
+        preload="auto" loop muted playsinline webkit-playsinline></video>
+      <video id="video3" src="https://rodriged.github.io/ArtViewer/IndianDancer.mp4"
+        preload="auto" loop muted playsinline webkit-playsinline></video>
+      <video id="video4" src="https://rodriged.github.io/ArtViewer/Hello-whale.mp4"
+        preload="auto" loop muted playsinline webkit-playsinline></video>
     </a-assets>
 
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
@@ -287,7 +305,7 @@
     });
   }
 
-  /* ── Show fullscreen video ── */
+  /* ── Show fullscreen video — Android + iOS safe ── */
   function showFullscreenVideo(i) {
     const art = artworks[i];
     const src = document.getElementById('video' + i)?.getAttribute('src');
@@ -300,22 +318,59 @@
     /* Hide scanner, show video player */
     arWrapper.style.display = 'none';
     closeBtn.style.display  = 'none';
-    videoPlayer.classList.add('active');
 
-    /* Play video */
-    fullscreenVideo.src = src;
-    fullscreenVideo.muted = true;
-    fullscreenVideo.currentTime = 0;
-    fullscreenVideo.play().catch(err => console.warn('play blocked:', err));
+    /* Reset video element completely before loading new src
+       Android Chrome needs this to avoid stale decoder state */
+    fullscreenVideo.pause();
+    fullscreenVideo.removeAttribute('src');
+    fullscreenVideo.load();
+
+    /* Set attributes Android needs explicitly */
+    fullscreenVideo.muted    = true;
+    fullscreenVideo.loop     = true;
+    fullscreenVideo.setAttribute('playsinline', '');
+    fullscreenVideo.setAttribute('webkit-playsinline', '');
+
+    /* Show player BEFORE setting src so layout is ready when video decodes */
+    videoPlayer.classList.add('active');
 
     overlayTitle.textContent = art.title;
     overlayMeta.textContent  = art.artist + ' · ' + art.year;
 
-    if (fullscreenVideo.requestFullscreen) {
-      fullscreenVideo.requestFullscreen().catch(() => {});
-    } else if (fullscreenVideo.webkitRequestFullscreen) {
-      fullscreenVideo.webkitRequestFullscreen();
-    }
+    /* Small delay lets the DOM paint before we start decoding */
+    setTimeout(() => {
+      fullscreenVideo.src = src;
+
+      /* canplay fires when first frame is ready — safer than play() directly */
+      const onCanPlay = () => {
+        fullscreenVideo.removeEventListener('canplay', onCanPlay);
+        fullscreenVideo.play().catch(err => {
+          console.warn('play() blocked, retrying muted:', err);
+          fullscreenVideo.muted = true;
+          fullscreenVideo.play().catch(e => console.error('play failed:', e));
+        });
+      };
+      fullscreenVideo.addEventListener('canplay', onCanPlay);
+      fullscreenVideo.load();
+
+      /* Fallback: if canplay never fires within 2s, force play anyway */
+      setTimeout(() => {
+        if (fullscreenVideo.paused) {
+          fullscreenVideo.play().catch(() => {});
+        }
+      }, 2000);
+
+      /* Skip native fullscreen on Android — it causes blank screen issues.
+         Our CSS fullscreen (position:fixed inset:0) works better on Android. */
+      const isAndroid = /android/i.test(navigator.userAgent);
+      if (!isAndroid) {
+        if (fullscreenVideo.requestFullscreen) {
+          fullscreenVideo.requestFullscreen().catch(() => {});
+        } else if (fullscreenVideo.webkitRequestFullscreen) {
+          fullscreenVideo.webkitRequestFullscreen();
+        }
+      }
+    }, 100);
   }
 
   /* ── Scan Another — resume camera ── */
