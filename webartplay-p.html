@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+<title>ArtPlay AR Platform</title>
+
+<script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
+
+<style>
+
+body {
+  margin: 0;
+  overflow: hidden;
+  background: black;
+  font-family: sans-serif;
+}
+
+/* STATES */
+.hidden { display: none; }
+
+/* LANDING */
+#landing {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: white;
+}
+
+/* AR */
+#ar-wrapper {
+  position: fixed;
+  inset: 0;
+  display: none;
+}
+
+#arScene {
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+
+/* VIDEO */
+#videoLayer {
+  position: fixed;
+  inset: 0;
+  background: black;
+  display: none;
+  z-index: 9999;
+}
+
+#videoLayer.active {
+  display: block;
+}
+
+video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* HUD */
+#hud {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  color: white;
+  z-index: 10;
+}
+
+/* BUTTONS */
+.btn {
+  padding: 12px 18px;
+  margin: 5px;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<!-- LANDING -->
+<div id="landing">
+  <h1>ArtPlay AR Platform</h1>
+  <button id="startBtn">Start Experience</button>
+  <div id="status">Idle</div>
+</div>
+
+<!-- AR -->
+<div id="ar-wrapper">
+
+  <div id="hud">AR Mode</div>
+
+  <a-scene
+    id="arScene"
+    embedded
+    vr-mode-ui="enabled:false"
+    mindar-image="imageTargetSrc:https://rodriged.github.io/ArtViewer/targets.mind; autoStart:false;"
+  >
+
+    <a-assets>
+      <video id="v0" src="https://rodriged.github.io/ArtViewer/Lion-a.mp4" playsinline loop></video>
+      <video id="v1" src="https://rodriged.github.io/ArtViewer/FlamingPeacock.mp4" playsinline loop></video>
+      <video id="v2" src="https://rodriged.github.io/ArtViewer/SS-SpanishDancer.mp4" playsinline loop></video>
+      <video id="v3" src="https://rodriged.github.io/ArtViewer/IndianDancer.mp4" playsinline loop></video>
+      <video id="v4" src="https://rodriged.github.io/ArtViewer/Hello-whale.mp4" playsinline loop></video>
+    </a-assets>
+
+    <a-camera></a-camera>
+
+    <a-entity id="t0" mindar-image-target="targetIndex:0"></a-entity>
+    <a-entity id="t1" mindar-image-target="targetIndex:1"></a-entity>
+    <a-entity id="t2" mindar-image-target="targetIndex:2"></a-entity>
+    <a-entity id="t3" mindar-image-target="targetIndex:3"></a-entity>
+    <a-entity id="t4" mindar-image-target="targetIndex:4"></a-entity>
+
+  </a-scene>
+
+</div>
+
+<!-- VIDEO LAYER -->
+<div id="videoLayer">
+  <video id="player" playsinline controls></video>
+  <button onclick="backToAR()" class="btn">Back</button>
+  <button onclick="exitAR()" class="btn">Exit</button>
+</div>
+
+<script>
+
+/* =========================
+   STATE MACHINE
+========================= */
+
+const STATE = {
+  IDLE: "idle",
+  INIT: "init",
+  READY: "ready",
+  TRACKING: "tracking",
+  PLAYING: "playing",
+  STOPPED: "stopped"
+};
+
+let currentState = STATE.IDLE;
+let mindar = null;
+
+/* =========================
+   DOM
+========================= */
+
+const landing = document.getElementById("landing");
+const arWrapper = document.getElementById("ar-wrapper");
+const arScene = document.getElementById("arScene");
+const status = document.getElementById("status");
+const videoLayer = document.getElementById("videoLayer");
+const player = document.getElementById("player");
+
+/* =========================
+   START
+========================= */
+
+document.getElementById("startBtn").onclick = async () => {
+
+  setState(STATE.INIT);
+
+  landing.style.display = "none";
+  arWrapper.style.display = "block";
+
+  status.innerText = "Initializing AR...";
+
+  await waitScene();
+
+  mindar = arScene.systems["mindar-image-system"];
+
+  if (!mindar) {
+    alert("MindAR failed");
+    return;
+  }
+
+  await mindar.start();
+
+  arScene.style.opacity = "1";
+
+  attachTargets();
+
+  setState(STATE.READY);
+
+};
+
+/* =========================
+   WAIT SCENE
+========================= */
+
+function waitScene() {
+  return new Promise(res => {
+    if (arScene.hasLoaded) return res();
+    arScene.addEventListener("loaded", res);
+  });
+}
+
+/* =========================
+   TARGETS
+========================= */
+
+function attachTargets() {
+
+  for (let i = 0; i < 5; i++) {
+
+    document.getElementById("t" + i)
+      .addEventListener("targetFound", () => play(i));
+
+  }
+
+}
+
+/* =========================
+   PLAY
+========================= */
+
+async function play(i) {
+
+  setState(STATE.PLAYING);
+
+  const vid = document.getElementById("v" + i);
+
+  await mindar.stop();
+
+  arWrapper.style.display = "none";
+
+  videoLayer.classList.add("active");
+
+  player.src = vid.src;
+  player.muted = false;
+
+  try {
+    await player.play();
+  } catch (e) {
+    console.warn("Autoplay blocked");
+  }
+
+}
+
+/* =========================
+   BACK
+========================= */
+
+async function backToAR() {
+
+  player.pause();
+  player.removeAttribute("src");
+
+  videoLayer.classList.remove("active");
+  arWrapper.style.display = "block";
+
+  await mindar.start();
+
+  setState(STATE.READY);
+
+}
+
+/* =========================
+   EXIT
+========================= */
+
+async function exitAR() {
+
+  player.pause();
+  player.removeAttribute("src");
+
+  videoLayer.classList.remove("active");
+
+  arWrapper.style.display = "none";
+  landing.style.display = "flex";
+
+  await mindar.stop();
+
+  setState(STATE.IDLE);
+
+}
+
+/* =========================
+   STATE MANAGER
+========================= */
+
+function setState(s) {
+  currentState = s;
+  status.innerText = "State: " + s;
+  console.log("STATE:", s);
+}
+
+</script>
+
+</body>
+</html>
