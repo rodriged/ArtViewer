@@ -228,6 +228,15 @@
       cursor:pointer;
     }
 
+    /* HIDE AFRAME VR BUTTONS */
+
+    .a-enter-vr,
+    .a-enter-ar,
+    .a-orientation-modal,
+    .a-fullscreen {
+      display:none !important;
+    }
+
   </style>
 </head>
 
@@ -274,6 +283,7 @@
     color-space="sRGB"
     renderer="colorManagement:true; physicallyCorrectLights:false;"
     vr-mode-ui="enabled:false"
+    xr-mode-ui="enabled:false"
     device-orientation-permission-ui="enabled:true"
     mindar-image="
       imageTargetSrc:https://rodriged.github.io/ArtViewer/targets.mind;
