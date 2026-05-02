@@ -137,8 +137,8 @@ body { position:fixed; inset:0; }
       uiLoading:no;
       uiScanning:no;
       uiError:no;
-      maxTrack:5;
-      warmupTolerance:1;
+      maxTrack:1;
+      warmupTolerance:2;
       missTolerance:10;
     "
   >
@@ -256,16 +256,55 @@ let activeIndex       = -1;
 ══════════════════════════════════════════ */
 window.addEventListener("load", initAnalytics);
 
+/* ═══════════════════════════════════════════════════
+   LOCATION — 3-API fallback chain
+   ipapi.co is often blocked on mobile browsers.
+   We try three different free HTTPS services in order.
+══════════════════════════════════════════════════ */
+async function getLocation() {
+  const apis = [
+    /* 1. ipwho.is — mobile-friendly, HTTPS, no key */
+    async () => {
+      const r = await fetch('https://ipwho.is/');
+      const d = await r.json();
+      if (d.success && d.city) return d.city + ', ' + d.region;
+      throw new Error('ipwho failed');
+    },
+    /* 2. freeipapi.com — HTTPS, reliable */
+    async () => {
+      const r = await fetch('https://freeipapi.com/api/json');
+      const d = await r.json();
+      if (d.cityName && d.regionName) return d.cityName + ', ' + d.regionName;
+      throw new Error('freeipapi failed');
+    },
+    /* 3. country.is — minimal fallback, country only */
+    async () => {
+      const r = await fetch('https://api.country.is/');
+      const d = await r.json();
+      if (d.country) return 'Country: ' + d.country;
+      throw new Error('country.is failed');
+    },
+  ];
+  for (const api of apis) {
+    try {
+      const result = await api();
+      console.log('Location resolved:', result);
+      return result;
+    } catch(e) {
+      console.warn('Location API failed, trying next:', e.message);
+    }
+  }
+  return 'Unknown';
+}
+
 async function initAnalytics() {
   try {
     const today = new Date().toISOString().split('T')[0];
     let locationName = 'Unknown';
 
-    /* Get location */
+    /* Get location — multi-API fallback chain */
     try {
-      const res = await fetch('https://ipapi.co/json/');
-      const loc = await res.json();
-      locationName = `${loc.city}, ${loc.region}`;
+      locationName = await getLocation();
       document.getElementById('userLocation').textContent = locationName;
     } catch(e) {
       document.getElementById('userLocation').textContent = 'Unknown';
@@ -384,7 +423,7 @@ function attachListeners() {
     if (!target) return;
 
     target.addEventListener("targetFound", () => {
-      console.log("🎯 Target found:", i, art.title);
+      console.log("🎯 Target found — index:", i, "| artwork:", art.title, "| src:", document.getElementById("video"+i)?.getAttribute("src"));
       if (videoLaunching || activeIndex === i) return;
       activeIndex = i;
       hudStatus.textContent = art.title;
