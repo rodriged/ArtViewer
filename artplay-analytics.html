@@ -144,11 +144,11 @@ body { position:fixed; inset:0; }
   >
     <a-assets>
       <!-- Videos — no crossorigin (causes Android CORS range-request failures) -->
-      <video id="video0" src="https://rodriged.github.io/ArtViewer/Lion-a.mp4"            preload="auto" loop muted playsinline webkit-playsinline></video>
-      <video id="video1" src="https://rodriged.github.io/ArtViewer/FlamingPeacock.mp4"    preload="auto" loop muted playsinline webkit-playsinline></video>
-      <video id="video2" src="https://rodriged.github.io/ArtViewer/SS-SpanishDancer.mp4"  preload="auto" loop muted playsinline webkit-playsinline></video>
-      <video id="video3" src="https://rodriged.github.io/ArtViewer/IndianDancer.mp4"      preload="auto" loop muted playsinline webkit-playsinline></video>
-      <video id="video4" src="https://rodriged.github.io/ArtViewer/Hello-whale.mp4"       preload="auto" loop muted playsinline webkit-playsinline></video>
+      <video id="video0" src="https://rodriged.github.io/ArtViewer/Lion-a.mp4"            preload="auto" loop muted playsinline webkit-playsinline crossorigin="anonymous"></video>
+      <video id="video1" src="https://rodriged.github.io/ArtViewer/FlamingPeacock.mp4"    preload="auto" loop muted playsinline webkit-playsinline crossorigin="anonymous"></video>
+      <video id="video2" src="https://rodriged.github.io/ArtViewer/SS-SpanishDancer.mp4"  preload="auto" loop muted playsinline webkit-playsinline crossorigin="anonymous"></video>
+      <video id="video3" src="https://rodriged.github.io/ArtViewer/IndianDancer.mp4"      preload="auto" loop muted playsinline webkit-playsinline crossorigin="anonymous"></video>
+      <video id="video4" src="https://rodriged.github.io/ArtViewer/Hello-whale.mp4"       preload="auto" loop muted playsinline webkit-playsinline crossorigin="anonymous"></video>
     </a-assets>
 
     <a-camera position="0 0 0" look-controls="enabled:false"></a-camera>
@@ -262,27 +262,37 @@ window.addEventListener("load", initAnalytics);
    We try three different free HTTPS services in order.
 ══════════════════════════════════════════════════ */
 async function getLocation() {
+  /* These APIs have open CORS headers — safe from GitHub Pages */
   const apis = [
-    /* 1. ipwho.is — mobile-friendly, HTTPS, no key */
+    /* 1. ipapi.co with explicit CORS mode */
     async () => {
-      const r = await fetch('https://ipwho.is/');
+      const r = await fetch('https://ipapi.co/json/', { mode: 'cors' });
       const d = await r.json();
-      if (d.success && d.city) return d.city + ', ' + d.region;
-      throw new Error('ipwho failed');
+      if (d.city && d.region) return d.city + ', ' + d.region;
+      throw new Error('ipapi failed');
     },
-    /* 2. freeipapi.com — HTTPS, reliable */
+    /* 2. ip.seeip.org — open CORS, no key needed */
     async () => {
-      const r = await fetch('https://freeipapi.com/api/json');
+      const r = await fetch('https://ip.seeip.org/geoip');
       const d = await r.json();
-      if (d.cityName && d.regionName) return d.cityName + ', ' + d.regionName;
-      throw new Error('freeipapi failed');
+      if (d.city && d.region) return d.city + ', ' + d.region;
+      throw new Error('seeip failed');
     },
-    /* 3. country.is — minimal fallback, country only */
+    /* 3. ipinfo.io — widely used, open CORS */
     async () => {
-      const r = await fetch('https://api.country.is/');
+      const r = await fetch('https://ipinfo.io/json?token=');
       const d = await r.json();
+      if (d.city && d.region) return d.city + ', ' + d.region;
       if (d.country) return 'Country: ' + d.country;
-      throw new Error('country.is failed');
+      throw new Error('ipinfo failed');
+    },
+    /* 4. Cloudflare trace — always works, returns country */
+    async () => {
+      const r = await fetch('https://www.cloudflare.com/cdn-cgi/trace');
+      const text = await r.text();
+      const loc = Object.fromEntries(text.trim().split('\n').map(l => l.split('=')));
+      if (loc.loc) return 'Country: ' + loc.loc;
+      throw new Error('cloudflare failed');
     },
   ];
   for (const api of apis) {
