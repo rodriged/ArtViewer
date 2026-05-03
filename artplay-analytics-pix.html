@@ -138,6 +138,22 @@ body{
   cursor:pointer;
 }
 
+#scanExitBtn{
+  position:fixed;
+  top:16px;
+  right:16px;
+  z-index:120;
+
+  padding:12px 16px;
+  border:1px solid gold;
+  background:rgba(0,0,0,.7);
+  color:gold;
+  font-size:14px;
+  cursor:pointer;
+  border-radius:8px;
+  backdrop-filter:blur(8px);
+}
+
 /* HUD */
 
 #hud{
@@ -164,7 +180,7 @@ body{
 
 <div id="landing">
 
-  <h1>ArtPlay AR</h1>
+  <h1>ArtPlay</h1>
 
   <button id="startBtn">
     ENTER GALLERY
@@ -183,6 +199,10 @@ body{
   <div id="hud">
     Point camera at artwork
   </div>
+
+  <button id="scanExitBtn">
+    Exit
+  </button>
 
   <a-scene
     id="arScene"
@@ -410,6 +430,20 @@ const fullscreenVid =
   document.getElementById(
     "fullscreenVideo"
   );
+
+/* =====================================================
+   BUTTON EVENTS
+===================================================== */
+
+const scanExitBtn =
+  document.getElementById(
+    "scanExitBtn"
+  );
+
+scanExitBtn.addEventListener(
+  "click",
+  closeAR
+);
 
 /* =====================================================
    STATE
