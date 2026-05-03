@@ -37,7 +37,7 @@ body{
 }
 
 /* HIDE AFRAME UI */
-
+/*
 .a-enter-vr,
 .a-enter-ar,
 .a-enter-vr-button,
@@ -45,6 +45,14 @@ body{
 .a-orientation-modal,
 .a-loader-title{
   display:none !important;
+}
+*/
+/* ── Kill ALL A-Frame built-in UI ── */
+.a-enter-vr, .a-enter-vr-button, .a-enter-ar, .a-enter-ar-button,
+.a-orientation-modal, [aframe-injected], .a-loader-title,
+.a-dialog, .a-dialog-allow-button, .a-dialog-deny-button, .a-dialog-ok-button {
+  display:none !important; visibility:hidden !important;
+  pointer-events:none !important; opacity:0 !important;
 }
 
 /* LANDING */
@@ -223,7 +231,6 @@ body{
 
 <body>
 
-<!--h1>ArtPlay</h1-->
 <!-- LANDING -->
 
 <div id="landing">
