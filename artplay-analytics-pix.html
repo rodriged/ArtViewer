@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -49,7 +49,7 @@ body{
 
 /* LANDING */
 
-#landing{
+/*#landing{
   position:fixed;
   inset:0;
   z-index:100;
@@ -75,6 +75,16 @@ body{
   font-size:14px;
   opacity:.8;
 }
+*/
+
+/* ── LANDING ── */
+#landing { position:fixed; inset:0; z-index:100; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:2rem; background:#0e0e0e; }
+.logo { font-family:'Cormorant Garamond',serif; font-size:clamp(3rem,10vw,5rem); letter-spacing:.15em; font-weight:300; }
+.logo span { color:var(--gold); font-style:italic; }
+.sub { margin-top:.6rem; margin-bottom:2rem; font-size:.7rem; letter-spacing:.35em; text-transform:uppercase; color:rgba(255,255,255,.45); }
+#startBtn { background:transparent; border:1px solid var(--gold); color:var(--gold); padding:1rem 2rem; font-size:.7rem; letter-spacing:.2em; text-transform:uppercase; cursor:pointer; transition:all .2s; }
+#startBtn:hover { background:var(--gold); color:#000; }
+#statusText { margin-top:1.5rem; max-width:320px; line-height:1.7; font-size:.7rem; color:rgba(255,255,255,.65); min-height:1.5em; }
 
 /* AR */
 
@@ -213,23 +223,14 @@ body{
 
 <body>
 
+<!--h1>ArtPlay</h1-->
 <!-- LANDING -->
 
 <div id="landing">
-
-  <div id="hud">
-    <div id="hudTitle">ArtPlay</div>
-  </div>
-  /*<h1>ArtPlay</h1>*/
-
-  <button id="startBtn">
-    ENTER GALLERY
-  </button>
-
-  <div id="status">
-    Ready
-  </div>
-
+  <div class="logo">Art<span>Play</span></div>
+  <div class="sub">Augmented Reality Gallery</div>
+  <button id="startBtn">Enter Gallery</button>
+  <div id="statusText">Ready</div>
 </div>
 
 <!-- AR -->
