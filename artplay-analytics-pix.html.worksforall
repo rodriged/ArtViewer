@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+
+<meta
+  name="viewport"
+  content="width=device-width, initial-scale=1.0, user-scalable=no"
+/>
+
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+
+<title>ArtPlay Pixel Fix</title>
+
+<!-- AFRAME -->
+<script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
+<!-- MINDAR -->
+<script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+
+<style>
+
+html,
+body{
+  margin:0;
+  width:100%;
+  height:100%;
+  overflow:hidden;
+  background:black;
+  font-family:Arial, sans-serif;
+}
+
+body{
+  position:fixed;
+  inset:0;
+}
+
+/* HIDE AFRAME UI */
+
+.a-enter-vr,
+.a-enter-ar,
+.a-enter-vr-button,
+.a-enter-ar-button,
+.a-orientation-modal,
+.a-loader-title{
+  display:none !important;
+}
+
+/* LANDING */
+
+#landing{
+  position:fixed;
+  inset:0;
+  z-index:100;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  background:#111;
+  color:white;
+}
+
+#startBtn{
+  padding:16px 28px;
+  border:1px solid gold;
+  background:transparent;
+  color:gold;
+  font-size:16px;
+  cursor:pointer;
+}
+
+#status{
+  margin-top:20px;
+  font-size:14px;
+  opacity:.8;
+}
+
+/* AR */
+
+#ar-wrapper{
+  position:fixed;
+  inset:0;
+  display:none;
+  background:black;
+}
+
+#arScene{
+  position:fixed;
+  inset:0;
+  width:100%;
+  height:100%;
+}
+
+/* VIDEO */
+
+#videoPlayer{
+  position:fixed;
+  inset:0;
+  background:black;
+  z-index:500;
+  display:none;
+  justify-content:center;
+  align-items:center;
+}
+
+#videoPlayer.active{
+  display:flex;
+}
+
+#fullscreenVideo{
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  background:black;
+
+  transform:translateZ(0);
+  -webkit-transform:translateZ(0);
+
+  backface-visibility:hidden;
+  -webkit-backface-visibility:hidden;
+}
+
+#controls{
+  position:absolute;
+  bottom:20px;
+  left:20px;
+  right:20px;
+  display:flex;
+  justify-content:space-between;
+}
+
+.btn{
+  padding:12px 18px;
+  border:1px solid gold;
+  background:rgba(0,0,0,.6);
+  color:gold;
+  cursor:pointer;
+}
+
+/* HUD */
+
+#hud{
+  position:fixed;
+  top:0;
+  left:0;
+  right:0;
+  padding:16px;
+  z-index:50;
+  color:white;
+  background:linear-gradient(
+    to bottom,
+    rgba(0,0,0,.7),
+    transparent
+  );
+}
+
+</style>
+</head>
+
+<body>
+
+<!-- LANDING -->
+
+<div id="landing">
+
+  <h1>ArtPlay AR</h1>
+
+  <button id="startBtn">
+    ENTER GALLERY
+  </button>
+
+  <div id="status">
+    Ready
+  </div>
+
+</div>
+
+<!-- AR -->
+
+<div id="ar-wrapper">
+
+  <div id="hud">
+    Point camera at artwork
+  </div>
+
+  <a-scene
+    id="arScene"
+    embedded
+    color-space="sRGB"
+
+    renderer="
+      antialias:true;
+      alpha:true;
+      precision:mediump;
+      colorManagement:true;
+    "
+
+    vr-mode-ui="enabled:false"
+    xr-mode-ui="enabled:false"
+    device-orientation-permission-ui="enabled:false"
+
+    mindar-image="
+      imageTargetSrc:https://rodriged.github.io/ArtViewer/targets.mind;
+      autoStart:false;
+      uiLoading:no;
+      uiScanning:no;
+      uiError:no;
+      maxTrack:1;
+      warmupTolerance:2;
+      missTolerance:10;
+    "
+  >
+
+    <a-assets timeout="30000">
+
+      <!-- IMPORTANT:
+           crossorigin REQUIRED for Pixel Chrome
+      -->
+
+      <video
+        id="video0"
+        src="https://rodriged.github.io/ArtViewer/Lion-a.mp4"
+        preload="metadata"
+        crossorigin="anonymous"
+        muted
+        playsinline
+        webkit-playsinline
+        loop
+      ></video>
+
+      <video
+        id="video1"
+        src="https://rodriged.github.io/ArtViewer/FlamingPeacock.mp4"
+        preload="metadata"
+        crossorigin="anonymous"
+        muted
+        playsinline
+        webkit-playsinline
+        loop
+      ></video>
+
+      <video
+        id="video2"
+        src="https://rodriged.github.io/ArtViewer/SS-SpanishDancer.mp4"
+        preload="metadata"
+        crossorigin="anonymous"
+        muted
+        playsinline
+        webkit-playsinline
+        loop
+      ></video>
+
+      <video
+        id="video3"
+        src="https://rodriged.github.io/ArtViewer/IndianDancer.mp4"
+        preload="metadata"
+        crossorigin="anonymous"
+        muted
+        playsinline
+        webkit-playsinline
+        loop
+      ></video>
+
+      <video
+        id="video4"
+        src="https://rodriged.github.io/ArtViewer/Hello-whale.mp4"
+        preload="metadata"
+        crossorigin="anonymous"
+        muted
+        playsinline
+        webkit-playsinline
+        loop
+      ></video>
+
+    </a-assets>
+
+    <a-camera
+      position="0 0 0"
+      look-controls="enabled:false"
+    ></a-camera>
+
+    <a-entity
+      id="target0"
+      mindar-image-target="targetIndex:0"
+    ></a-entity>
+
+    <a-entity
+      id="target1"
+      mindar-image-target="targetIndex:1"
+    ></a-entity>
+
+    <a-entity
+      id="target2"
+      mindar-image-target="targetIndex:2"
+    ></a-entity>
+
+    <a-entity
+      id="target3"
+      mindar-image-target="targetIndex:3"
+    ></a-entity>
+
+    <a-entity
+      id="target4"
+      mindar-image-target="targetIndex:4"
+    ></a-entity>
+
+  </a-scene>
+
+</div>
+
+<!-- VIDEO -->
+
+<div id="videoPlayer">
+
+  <video
+    id="fullscreenVideo"
+    autoplay
+    muted
+    playsinline
+    webkit-playsinline
+    loop
+  ></video>
+
+  <div id="controls">
+
+    <button
+      class="btn"
+      onclick="backToScan()"
+    >
+      Scan Another
+    </button>
+
+    <button
+      class="btn"
+      onclick="closeAR()"
+    >
+      Exit
+    </button>
+
+  </div>
+
+</div>
+
+<script>
+
+/* =====================================================
+   ARTWORKS
+===================================================== */
+
+const artworks = [
+
+  {
+    title:"Lion"
+  },
+
+  {
+    title:"Flaming Peacock"
+  },
+
+  {
+    title:"Spanish Dancer"
+  },
+
+  {
+    title:"Indian Dancer"
+  },
+
+  {
+    title:"Whale"
+  }
+
+];
+
+/* =====================================================
+   DOM
+===================================================== */
+
+const landing =
+  document.getElementById(
+    "landing"
+  );
+
+const arWrapper =
+  document.getElementById(
+    "ar-wrapper"
+  );
+
+const arScene =
+  document.getElementById(
+    "arScene"
+  );
+
+const startBtn =
+  document.getElementById(
+    "startBtn"
+  );
+
+const statusText =
+  document.getElementById(
+    "status"
+  );
+
+const videoPlayer =
+  document.getElementById(
+    "videoPlayer"
+  );
+
+const fullscreenVid =
+  document.getElementById(
+    "fullscreenVideo"
+  );
+
+/* =====================================================
+   STATE
+===================================================== */
+
+let mindarSystem = null;
+
+let listenersAttached = false;
+
+let videoOpen = false;
+
+/* =====================================================
+   LOG
+===================================================== */
+
+function log(msg){
+
+  console.log(msg);
+
+  statusText.innerHTML = msg;
+
+}
+
+/* =====================================================
+   DEBUG
+===================================================== */
+
+console.log(
+  "AFRAME:",
+  window.AFRAME
+);
+
+console.log(
+  "MINDAR:",
+  window.MINDAR
+);
+
+console.log(
+  "Secure:",
+  window.isSecureContext
+);
+
+/* =====================================================
+   WAIT FOR SYSTEM
+===================================================== */
+
+async function waitForMindAR(){
+
+  return new Promise(
+    (resolve, reject) => {
+
+      let attempts = 0;
+
+      const timer =
+        setInterval(() => {
+
+          attempts++;
+
+          const sys =
+            arScene.systems[
+              "mindar-image-system"
+            ] ||
+            arScene.systems[
+              "mindar-image"
+            ];
+
+          if(sys){
+
+            clearInterval(timer);
+
+            mindarSystem = sys;
+
+            log("MINDAR FOUND");
+
+            resolve();
+
+          }
+
+          if(attempts > 100){
+
+            clearInterval(timer);
+
+            reject(
+              new Error(
+                "MindAR timeout"
+              )
+            );
+
+          }
+
+        }, 100);
+
+    }
+  );
+
+}
+
+/* =====================================================
+   START
+===================================================== */
+
+startBtn.addEventListener(
+  "click",
+  startAR
+);
+
+async function startAR(){
+
+  try{
+
+    log("START");
+
+    /* PREWARM CAMERA */
+
+    log("PREWARM CAMERA");
+
+    const stream =
+      await navigator
+        .mediaDevices
+        .getUserMedia({
+
+          video:{
+            facingMode:{
+              ideal:"environment"
+            }
+          },
+
+          audio:false
+
+        });
+
+    stream
+      .getTracks()
+      .forEach(t => t.stop());
+
+    log("CAMERA READY");
+
+    landing.style.display =
+      "none";
+
+    arWrapper.style.display =
+      "block";
+
+    /* WAIT FOR SCENE */
+
+    await new Promise(resolve => {
+
+      if(arScene.hasLoaded){
+
+        resolve();
+
+      }else{
+
+        arScene.addEventListener(
+          "loaded",
+          resolve,
+          { once:true }
+        );
+
+      }
+
+    });
+
+    log("SCENE RENDERED");
+
+    /* WAIT FOR MINDAR */
+
+    await waitForMindAR();
+
+    console.log(
+      "SYSTEMS:",
+      Object.keys(arScene.systems)
+    );
+
+    /* PIXEL FIX */
+
+    await new Promise(
+      r => setTimeout(r, 800)
+    );
+
+    log("STARTING MINDAR");
+
+    await mindarSystem.start();
+
+    log("MINDAR STARTED");
+
+    attachListeners();
+
+    log("AR READY");
+
+  }catch(err){
+
+    console.error(err);
+
+    alert(
+      "AR FAILED:\n\n" +
+      err.message
+    );
+
+    landing.style.display =
+      "flex";
+
+    arWrapper.style.display =
+      "none";
+
+  }
+
+}
+
+/* =====================================================
+   TARGETS
+===================================================== */
+
+function attachListeners(){
+
+  if(listenersAttached) return;
+
+  listenersAttached = true;
+
+  artworks.forEach(
+    (art, i) => {
+
+      const target =
+        document.getElementById(
+          "target" + i
+        );
+
+      target.addEventListener(
+        "targetFound",
+        () => {
+
+          console.log(
+            "TARGET FOUND",
+            i
+          );
+
+          if(videoOpen) return;
+
+          showVideo(i);
+
+        }
+      );
+
+    }
+  );
+
+}
+
+/* =====================================================
+   SHOW VIDEO
+===================================================== */
+
+async function showVideo(i){
+
+  videoOpen = true;
+
+  const src =
+    document
+      .getElementById(
+        "video" + i
+      )
+      .getAttribute("src");
+
+  console.log(
+    "VIDEO SRC:",
+    src
+  );
+
+  try{
+
+    mindarSystem.pause();
+
+  }catch(e){}
+
+  arWrapper.style.display =
+    "none";
+
+  videoPlayer.classList.add(
+    "active"
+  );
+
+  /* RESET VIDEO */
+
+  fullscreenVid.pause();
+
+  fullscreenVid.removeAttribute(
+    "src"
+  );
+
+  fullscreenVid.load();
+
+  /* NEW SOURCE */
+
+  fullscreenVid.src = src;
+
+  fullscreenVid.load();
+
+  /* WAIT FOR DECODER */
+
+  await new Promise(resolve => {
+
+    if(
+      fullscreenVid.readyState >= 3
+    ){
+
+      resolve();
+
+    }else{
+
+      fullscreenVid.oncanplay =
+        () => resolve();
+
+    }
+
+  });
+
+  try{
+
+    await fullscreenVid.play();
+
+    console.log(
+      "VIDEO PLAYING"
+    );
+
+  }catch(err){
+
+    console.error(
+      "VIDEO PLAY ERROR",
+      err
+    );
+
+    alert(
+      "Video failed:\n\n" +
+      err.message
+    );
+
+  }
+
+}
+
+/* =====================================================
+   BACK
+===================================================== */
+
+async function backToScan(){
+
+  videoOpen = false;
+
+  fullscreenVid.pause();
+
+  fullscreenVid.removeAttribute(
+    "src"
+  );
+
+  fullscreenVid.load();
+
+  videoPlayer.classList.remove(
+    "active"
+  );
+
+  arWrapper.style.display =
+    "block";
+
+  try{
+
+    mindarSystem.unpause();
+
+  }catch(e){
+
+    console.warn(e);
+
+  }
+
+}
+
+/* =====================================================
+   CLOSE
+===================================================== */
+
+async function closeAR(){
+
+  videoOpen = false;
+
+  fullscreenVid.pause();
+
+  fullscreenVid.removeAttribute(
+    "src"
+  );
+
+  fullscreenVid.load();
+
+  videoPlayer.classList.remove(
+    "active"
+  );
+
+  try{
+
+    await mindarSystem.stop();
+
+  }catch(e){}
+
+  arWrapper.style.display =
+    "none";
+
+  landing.style.display =
+    "flex";
+
+  log("Ready");
+
+}
+
+/* =====================================================
+   ERRORS
+===================================================== */
+
+window.addEventListener(
+  "error",
+  e => {
+
+    console.error(
+      "ERROR:",
+      e.message
+    );
+
+  }
+);
+
+window.addEventListener(
+  "unhandledrejection",
+  e => {
+
+    console.error(
+      "UNHANDLED:",
+      e.reason
+    );
+
+  }
+);
+
+console.log("APP LOADED");
+
+</script>
+
+</body>
+</html>

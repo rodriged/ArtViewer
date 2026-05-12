@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8" />
+
+<meta
+  name="viewport"
+  content="width=device-width, initial-scale=1.0, user-scalable=no"
+/>
+
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+
+<title>ArtPlay AR Analytics</title>
+
+<!-- AFRAME -->
+<script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
+<!-- MINDAR -->
+<script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
+
+<!-- FIREBASE -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+<style>
+
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;600&family=DM+Mono:wght@300;400&display=swap');
+
+:root{
+  --bg:#0e0e0e;
+  --gold:#b8924a;
+  --gold2:#d4ad72;
+  --text:#f2ede4;
+}
+
+*{
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+}
+
+html,
+body{
+  width:100%;
+  height:100%;
+  overflow:hidden;
+  background:black;
+  color:var(--text);
+  font-family:'DM Mono', monospace;
+}
+
+body{
+  position:fixed;
+  inset:0;
+}
+
+/* =========================================
+   LANDING
+========================================= */
+
+#landing{
+  position:fixed;
+  inset:0;
+  z-index:100;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  padding:2rem;
+  background:#0e0e0e;
+}
+
+.logo{
+  font-family:'Cormorant Garamond', serif;
+  font-size:clamp(3rem,10vw,5rem);
+  letter-spacing:.15em;
+  font-weight:300;
+}
+
+.logo span{
+  color:var(--gold);
+  font-style:italic;
+}
+
+.sub{
+  margin-top:.6rem;
+  margin-bottom:2rem;
+  font-size:.7rem;
+  letter-spacing:.35em;
+  text-transform:uppercase;
+  color:rgba(255,255,255,.45);
+}
+
+#startBtn{
+  background:transparent;
+  border:1px solid var(--gold);
+  color:var(--gold);
+  padding:1rem 2rem;
+  font-size:.7rem;
+  letter-spacing:.2em;
+  text-transform:uppercase;
+  cursor:pointer;
+}
+
+#status{
+  margin-top:1.5rem;
+  max-width:320px;
+  line-height:1.7;
+  font-size:.7rem;
+  color:rgba(255,255,255,.65);
+}
+
+/* =========================================
+   AR
+========================================= */
+
+#ar-wrapper{
+  position:fixed;
+  inset:0;
+  display:none;
+  background:black;
+}
+
+#arScene{
+  position:fixed;
+  inset:0;
+  width:100%;
+  height:100%;
+  opacity:0;
+  transition:opacity .5s;
+}
+
+#hud{
+  position:fixed;
+  top:0;
+  left:0;
+  right:0;
+  z-index:50;
+  padding:1rem;
+  display:flex;
+  justify-content:space-between;
+  background:linear-gradient(to bottom, rgba(0,0,0,.7), transparent);
+  pointer-events:none;
+}
+
+#hudTitle{
+  font-family:'Cormorant Garamond', serif;
+  font-size:1rem;
+  color:var(--gold2);
+}
+
+#hudStatus{
+  font-size:.6rem;
+  letter-spacing:.15em;
+  text-transform:uppercase;
+  color:rgba(255,255,255,.7);
+}
+
+/* =========================================
+   SCAN BOX
+========================================= */
+
+#scanBox{
+  position:fixed;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:40;
+  pointer-events:none;
+}
+
+.scanFrame{
+  width:min(70vw,300px);
+  height:min(70vw,300px);
+  border:2px solid var(--gold);
+}
+
+/* =========================================
+   VIDEO PLAYER
+========================================= */
+
+#videoPlayer{
+  position:fixed;
+  inset:0;
+  z-index:200;
+  background:black;
+  display:none;
+  align-items:center;
+  justify-content:center;
+}
+
+#videoPlayer.active{
+  display:flex;
+}
+
+#fullscreenVideo{
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  background:black;
+}
+
+#videoTop{
+  position:absolute;
+  top:0;
+  left:0;
+  right:0;
+  padding:1rem;
+  background:linear-gradient(to bottom, rgba(0,0,0,.75), transparent);
+}
+
+#videoTitle{
+  font-family:'Cormorant Garamond', serif;
+  font-size:1.3rem;
+}
+
+#videoMeta{
+  margin-top:.2rem;
+  font-size:.65rem;
+  letter-spacing:.15em;
+  text-transform:uppercase;
+  color:var(--gold);
+}
+
+#videoBottom{
+  position:absolute;
+  bottom:0;
+  left:0;
+  right:0;
+  padding:1rem;
+  display:flex;
+  justify-content:space-between;
+  background:linear-gradient(to top, rgba(0,0,0,.75), transparent);
+}
+
+.btn{
+  background:transparent;
+  border:1px solid var(--gold);
+  color:var(--gold);
+  padding:.8rem 1rem;
+  font-size:.65rem;
+  letter-spacing:.15em;
+  text-transform:uppercase;
+  cursor:pointer;
+}
+
+/* =========================================
+   ANALYTICS
+========================================= */
+
+#analyticsPanel{
+  position:fixed;
+  bottom:10px;
+  left:10px;
+  z-index:500;
+  background:rgba(0,0,0,.65);
+  color:white;
+  padding:10px 14px;
+  border-radius:10px;
+  font-size:11px;
+  line-height:1.8;
+  backdrop-filter:blur(6px);
+}
+
+</style>
+
+</head>
+
+<body>
+
+<!-- =====================================
+     LANDING
+===================================== -->
+
+<div id="landing">
+
+  <div class="logo">
+    Art<span>Play</span>
+  </div>
+
+  <div class="sub">
+    Augmented Reality Gallery
+  </div>
+
+  <button id="startBtn">
+    Enter Gallery
+  </button>
+
+  <div id="status">
+    Ready
+  </div>
+
+</div>
+
+<!-- =====================================
+     AR
+===================================== -->
+
+<div id="ar-wrapper">
+
+  <div id="hud">
+    <div id="hudTitle">ArtPlay</div>
+    <div id="hudStatus">Scanning</div>
+  </div>
+
+  <div id="scanBox">
+    <div class="scanFrame"></div>
+  </div>
+
+  <a-scene
+    id="arScene"
+    embedded
+    color-space="sRGB"
+    renderer="colorManagement:true; physicallyCorrectLights:false;"
+    vr-mode-ui="enabled:false"
+    device-orientation-permission-ui="enabled:true"
+    mindar-image="
+      imageTargetSrc:https://rodriged.github.io/ArtViewer/targets.mind;
+      autoStart:false;
+      uiLoading:no;
+      uiScanning:no;
+      uiError:no;
+      maxTrack:1;
+      warmupTolerance:5;
+      missTolerance:5;
+    "
+  >
+
+    <a-assets>
+
+      <video
+        id="video0"
+        src="https://rodriged.github.io/ArtViewer/Lion-a.mp4"
+        preload="auto"
+        crossorigin="anonymous"
+        playsinline
+        webkit-playsinline
+        loop
+      ></video>
+
+      <video
+        id="video1"
+        src="https://rodriged.github.io/ArtViewer/FlamingPeacock.mp4"
+        preload="auto"
+        crossorigin="anonymous"
+        playsinline
+        webkit-playsinline
+        loop
+      ></video>
+
+      <video
+        id="video2"
+        src="https://rodriged.github.io/ArtViewer/SS-SpanishDancer.mp4"
+        preload="auto"
+        crossorigin="anonymous"
+        playsinline
+        webkit-playsinline
+        loop
+      ></video>
+
+      <video
+        id="video3"
+        src="https://rodriged.github.io/ArtViewer/IndianDancer.mp4"
+        preload="auto"
+        crossorigin="anonymous"
+        playsinline
+        webkit-playsinline
+        loop
+      ></video>
+
+      <video
+        id="video4"
+        src="https://rodriged.github.io/ArtViewer/Hello-whale.mp4"
+        preload="auto"
+        crossorigin="anonymous"
+        playsinline
+        webkit-playsinline
+        loop
+      ></video>
+
+    </a-assets>
+
+    <a-camera position="0 0 0"></a-camera>
+
+    <a-entity id="target0" mindar-image-target="targetIndex:0"></a-entity>
+    <a-entity id="target1" mindar-image-target="targetIndex:1"></a-entity>
+    <a-entity id="target2" mindar-image-target="targetIndex:2"></a-entity>
+    <a-entity id="target3" mindar-image-target="targetIndex:3"></a-entity>
+    <a-entity id="target4" mindar-image-target="targetIndex:4"></a-entity>
+
+  </a-scene>
+
+</div>
+
+<!-- =====================================
+     VIDEO PLAYER
+===================================== -->
+
+<div id="videoPlayer">
+
+  <video
+    id="fullscreenVideo"
+    playsinline
+    webkit-playsinline
+    loop
+  ></video>
+
+  <div id="videoTop">
+    <div id="videoTitle"></div>
+    <div id="videoMeta"></div>
+  </div>
+
+  <div id="videoBottom">
+
+    <button class="btn" onclick="backToScan()">
+      Scan Another
+    </button>
+
+    <button class="btn" onclick="closeAR()">
+      Exit
+    </button>
+
+  </div>
+
+</div>
+
+<!-- =====================================
+     ANALYTICS PANEL
+===================================== -->
+
+<div id="analyticsPanel">
+
+  <div>
+    Daily Users:
+    <span id="dailyUsers">0</span>
+  </div>
+
+  <div>
+    Total Visits:
+    <span id="totalVisits">0</span>
+  </div>
+
+  <div>
+    Location:
+    <span id="userLocation">Unknown</span>
+  </div>
+
+</div>
+
+<script>
+
+/* =========================================
+   FIREBASE CONFIG
+========================================= */
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBLgVzIThthvr0fQJR9vF2PLozE7AlCJlw",
+  authDomain: "artplayweb-e4839.firebaseapp.com",
+  projectId: "artplayweb-e4839",
+  storageBucket: "artplayweb-e4839.firebasestorage.app",
+  messagingSenderId: "163947790614",
+  appId: "1:163947790614:web:0e8bca2b7e1fe848d91037",
+  measurementId: "G-G3G5DC3TZM"
+};
+
+firebase.initializeApp(firebaseConfig);
+
+const db = firebase.firestore();
+
+/* =========================================
+   ARTWORKS
+========================================= */
+
+const artworks = [
+
+  {
+    title:"Artwork One",
+    artist:"Artist",
+    year:"2024"
+  },
+
+  {
+    title:"Artwork Two",
+    artist:"Artist",
+    year:"2023"
+  },
+
+  {
+    title:"Artwork Three",
+    artist:"Artist",
+    year:"2022"
+  },
+
+  {
+    title:"Artwork Four",
+    artist:"Artist",
+    year:"2021"
+  },
+
+  {
+    title:"Artwork Five",
+    artist:"Artist",
+    year:"2020"
+  }
+
+];
+
+/* =========================================
+   DOM
+========================================= */
+
+const landing =
+  document.getElementById("landing");
+
+const arWrapper =
+  document.getElementById("ar-wrapper");
+
+const arScene =
+  document.getElementById("arScene");
+
+const startBtn =
+  document.getElementById("startBtn");
+
+const statusText =
+  document.getElementById("status");
+
+const videoPlayer =
+  document.getElementById("videoPlayer");
+
+const fullscreenVid =
+  document.getElementById("fullscreenVideo");
+
+const videoTitle =
+  document.getElementById("videoTitle");
+
+const videoMeta =
+  document.getElementById("videoMeta");
+
+/* =========================================
+   GLOBALS
+========================================= */
+
+let mindarSystem = null;
+let listenersAttached = false;
+
+/* =========================================
+   START BUTTON
+========================================= */
+
+startBtn.addEventListener(
+  "click",
+  startAR
+);
+
+/* =========================================
+   INIT ANALYTICS
+========================================= */
+
+window.addEventListener(
+  "load",
+  async () => {
+
+    await initAnalytics();
+
+    console.log("Ready");
+
+  }
+);
+
+/* =========================================
+   ANALYTICS
+========================================= */
+
+async function initAnalytics() {
+
+  try {
+
+    const today =
+      new Date()
+        .toISOString()
+        .split('T')[0];
+
+    let locationName =
+      'Unknown';
+
+    try {
+
+      const res =
+        await fetch(
+          'https://ipapi.co/json/'
+        );
+
+      const loc =
+        await res.json();
+
+      locationName =
+        `${loc.city}, ${loc.region}`;
+
+      document.getElementById(
+        'userLocation'
+      ).textContent = locationName;
+
+    } catch (e) {
+
+      console.warn(
+        'Location failed'
+      );
+
+    }
+
+    /* DAILY */
+
+    const dailyRef =
+      db.collection(
+        'dailyCounters'
+      ).doc(today);
+
+    await db.runTransaction(
+      async tx => {
+
+        const doc =
+          await tx.get(dailyRef);
+
+        if (!doc.exists) {
+
+          tx.set(dailyRef, {
+            users:1
+          });
+
+        } else {
+
+          tx.update(dailyRef, {
+            users:
+              firebase.firestore.FieldValue.increment(1)
+          });
+
+        }
+
+      }
+    );
+
+    /* LOCATION */
+
+    const locationRef =
+      db.collection(
+        'locationCounters'
+      ).doc(locationName);
+
+    await db.runTransaction(
+      async tx => {
+
+        const doc =
+          await tx.get(locationRef);
+
+        if (!doc.exists) {
+
+          tx.set(locationRef, {
+            visits:1
+          });
+
+        } else {
+
+          tx.update(locationRef, {
+            visits:
+              firebase.firestore.FieldValue.increment(1)
+          });
+
+        }
+
+      }
+    );
+
+    /* TOTAL */
+
+    const totalRef =
+      db.collection(
+        'global'
+      ).doc('stats');
+
+    await db.runTransaction(
+      async tx => {
+
+        const doc =
+          await tx.get(totalRef);
+
+        if (!doc.exists) {
+
+          tx.set(totalRef, {
+            totalVisits:1
+          });
+
+        } else {
+
+          tx.update(totalRef, {
+            totalVisits:
+              firebase.firestore.FieldValue.increment(1)
+          });
+
+        }
+
+      }
+    );
+
+    /* READ */
+
+    const dailySnap =
+      await dailyRef.get();
+
+    document.getElementById(
+      'dailyUsers'
+    ).textContent =
+      dailySnap.data()?.users || 0;
+
+    const totalSnap =
+      await totalRef.get();
+
+    document.getElementById(
+      'totalVisits'
+    ).textContent =
+      totalSnap.data()?.totalVisits || 0;
+
+  } catch (err) {
+
+    console.error(
+      "Analytics error",
+      err
+    );
+
+  }
+}
+
+/* =========================================
+   START AR
+========================================= */
+
+async function startAR() {
+
+  try {
+
+    statusText.innerHTML =
+      "Requesting camera access...";
+
+    const stream =
+      await navigator
+        .mediaDevices
+        .getUserMedia({
+
+          video:{
+            facingMode:{
+              ideal:"environment"
+            }
+          },
+
+          audio:false
+
+        });
+
+    stream.getTracks()
+      .forEach(track => {
+        track.stop();
+      });
+
+  } catch (err) {
+
+    alert(
+      "Camera permission denied"
+    );
+
+    return;
+  }
+
+  landing.style.display =
+    "none";
+
+  arWrapper.style.display =
+    "block";
+
+  arScene.style.opacity =
+    "1";
+
+  await waitForMindAR();
+
+  if (!mindarSystem) {
+
+    alert(
+      "MindAR failed to initialize"
+    );
+
+    return;
+  }
+
+  try {
+
+    await mindarSystem.start();
+
+    attachListeners();
+
+  } catch (err) {
+
+    console.error(err);
+
+    alert(
+      "Failed to start AR"
+    );
+
+  }
+}
+
+/* =========================================
+   WAIT FOR MINDAR
+========================================= */
+
+async function waitForMindAR() {
+
+  return new Promise(resolve => {
+
+    let attempts = 0;
+
+    const timer =
+      setInterval(() => {
+
+        attempts++;
+
+        mindarSystem =
+          arScene.systems["mindar-image-system"] ||
+          arScene.systems["mindar-image"];
+
+        if (mindarSystem) {
+
+          clearInterval(timer);
+
+          resolve();
+
+        }
+
+        if (attempts > 50) {
+
+          clearInterval(timer);
+
+          resolve();
+
+        }
+
+      }, 200);
+
+  });
+}
+
+/* =========================================
+   TARGET LISTENERS
+========================================= */
+
+function attachListeners() {
+
+  if (listenersAttached) return;
+
+  listenersAttached = true;
+
+  artworks.forEach((art, i) => {
+
+    const target =
+      document.getElementById(
+        "target" + i
+      );
+
+    if (!target) return;
+
+    target.addEventListener(
+      "targetFound",
+      () => {
+
+        console.log(
+          "Target found",
+          i
+        );
+
+        showVideo(i);
+
+      }
+    );
+
+  });
+}
+
+/* =========================================
+   SHOW VIDEO
+========================================= */
+
+async function showVideo(i) {
+
+  const art = artworks[i];
+
+  const src =
+    document
+      .getElementById("video" + i)
+      ?.getAttribute("src");
+
+  if (!src) return;
+
+  try {
+
+    await db
+      .collection('artworkViews')
+      .add({
+
+        artwork:
+          art.title,
+
+        timestamp:
+          firebase.firestore.FieldValue.serverTimestamp()
+
+      });
+
+  } catch (e) {
+
+    console.warn(e);
+
+  }
+
+  try {
+
+    await mindarSystem.stop();
+
+  } catch (e) {}
+
+  arWrapper.style.display =
+    "none";
+
+  videoPlayer.classList.add(
+    "active"
+  );
+
+  fullscreenVid.src = src;
+
+  fullscreenVid.currentTime = 0;
+
+  videoTitle.textContent =
+    art.title;
+
+  videoMeta.textContent =
+    `${art.artist} · ${art.year}`;
+
+  try {
+
+    await fullscreenVid.play();
+
+  } catch (e) {}
+
+}
+
+/* =========================================
+   BACK TO SCAN
+========================================= */
+
+async function backToScan() {
+
+  fullscreenVid.pause();
+
+  fullscreenVid.src = "";
+
+  videoPlayer.classList.remove(
+    "active"
+  );
+
+  arWrapper.style.display =
+    "block";
+
+  try {
+
+    await mindarSystem.start();
+
+  } catch (e) {}
+
+}
+
+/* =========================================
+   CLOSE
+========================================= */
+
+async function closeAR() {
+
+  try {
+
+    await mindarSystem.stop();
+
+  } catch (e) {}
+
+  fullscreenVid.pause();
+
+  fullscreenVid.src = "";
+
+  videoPlayer.classList.remove(
+    "active"
+  );
+
+  arWrapper.style.display =
+    "none";
+
+  landing.style.display =
+    "flex";
+
+}
+
+</script>
+
+</body>
+</html>

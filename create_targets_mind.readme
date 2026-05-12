@@ -1,0 +1,17 @@
+npm install sharp glob
+node build-targets.mjs 
+
+================================================
+IMPORTANT
+================================================
+
+Open:
+
+https://hiukim.github.io/mind-ar-js-doc/tools/compile
+
+Then drag ALL files from:
+./temp-targets
+
+Download targets.mind into:
+./targets
+
