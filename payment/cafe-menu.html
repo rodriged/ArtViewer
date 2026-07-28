@@ -1,0 +1,3151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <title>Ideal Cafe & Creamery — Dessert Menu</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+  <!-- Stripe.js — must load from stripe.com, never self-host -->
+  <script src="https://js.stripe.com/v3/"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --cream:      #FAF7F2;
+      --espresso:   #2C1A0E;
+      --gold:       #C9922A;
+      --gold-light: #F0C96A;
+      --smoke:      #7A6F65;
+      --card-bg:    #FFFDF9;
+      --border:     rgba(44, 26, 14, 0.12);
+      --tag-bg:     rgba(201, 146, 42, 0.12);
+      --green:      #3a7a30;
+    }
+    html { scroll-behavior: smooth; }
+    body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--espresso); min-height: 100vh; }
+
+    /* ─── Header ── */
+    .menu-header { text-align: center; padding: 2.5rem 1rem 2rem; border-bottom: 0.5px solid var(--border); background: var(--card-bg); position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 0 var(--border); }
+    .wordmark { font-family: 'Playfair Display', serif; font-size: 32px; font-weight: 600; color: var(--espresso); letter-spacing: -0.5px; }
+    .tagline { font-size: 11px; color: var(--smoke); letter-spacing: 3px; text-transform: uppercase; margin-top: 5px; font-weight: 300; }
+
+    /* ─── Tabs ── */
+    .category-tabs { display: flex; gap: 6px; padding: 1.25rem 1.5rem; overflow-x: auto; scrollbar-width: none; background: var(--card-bg); border-bottom: 0.5px solid var(--border); }
+    .category-tabs::-webkit-scrollbar { display: none; }
+    .tab { padding: 7px 20px; border-radius: 100px; font-size: 13px; font-weight: 400; cursor: pointer; border: 0.5px solid var(--border); background: transparent; color: var(--smoke); white-space: nowrap; transition: all 0.2s ease; font-family: 'DM Sans', sans-serif; }
+    .tab.active, .tab:hover { background: var(--espresso); color: #fff; border-color: var(--espresso); }
+
+    /* ─── Search ── */
+    .search-row { display: flex; align-items: center; gap: 10px; padding: 0 1.5rem 1.1rem; background: var(--card-bg); border-bottom: 0.5px solid var(--border); }
+    .search-field-wrap { flex: 1; position: relative; display: flex; align-items: center; max-width: 420px; }
+    .search-icon { position: absolute; left: 13px; width: 15px; height: 15px; color: var(--smoke); pointer-events: none; }
+    .search-input {
+      width: 100%; padding: 9px 34px 9px 36px; border-radius: 100px; border: 0.5px solid var(--border);
+      background: var(--cream); font-family: 'DM Sans', sans-serif; font-size: 13px; color: var(--espresso); outline: none;
+      transition: border-color 0.2s;
+    }
+    .search-input:focus { border-color: var(--gold); }
+    .search-input::placeholder { color: var(--smoke); }
+    .search-clear-btn {
+      position: absolute; right: 8px; width: 20px; height: 20px; border-radius: 50%; border: none;
+      background: var(--border); color: var(--espresso); font-size: 12px; line-height: 1; cursor: pointer;
+      display: none; align-items: center; justify-content: center;
+    }
+    .search-clear-btn.visible { display: flex; }
+
+    /* ─── Section label ── */
+    .section-label { font-size: 10px; letter-spacing: 3px; text-transform: uppercase; color: var(--smoke); padding: 1.25rem 1.5rem 0.75rem; font-weight: 400; }
+
+    /* ─── Grid ── */
+    .menu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1px; background: var(--border); border-top: 0.5px solid var(--border); }
+    .menu-item { background: var(--card-bg); position: relative; cursor: pointer; overflow: hidden; transition: background 0.15s; }
+    .menu-item:hover { background: var(--cream); }
+
+    /* ─── Media ── */
+    .item-media { width: 100%; height: 220px; position: relative; overflow: hidden; background: #EDE8DF; }
+    .item-thumb { width: 100%; height: 100%; object-fit: cover; display: block; transition: opacity 0.45s ease, transform 0.6s ease; }
+    .item-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 0.5s ease; pointer-events: none; }
+    .menu-item:hover .item-thumb { opacity: 0; transform: scale(1.04); }
+    .menu-item:hover .item-video { opacity: 1; }
+    .video-badge { position: absolute; top: 12px; right: 12px; background: rgba(0,0,0,0.55); color: #fff; font-size: 10px; letter-spacing: 1.5px; padding: 4px 10px; border-radius: 4px; display: flex; align-items: center; gap: 6px; opacity: 1; transition: opacity 0.3s; font-family: 'DM Sans', sans-serif; text-transform: uppercase; pointer-events: none; }
+    .menu-item:hover .video-badge { opacity: 0; }
+    .play-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--gold-light); animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.25} }
+    .hover-cue { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; transition: background 0.4s; }
+    .menu-item:hover .hover-cue { background: rgba(44,26,14,0.06); }
+    .hover-ring { width: 48px; height: 48px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.9); display: flex; align-items: center; justify-content: center; opacity: 0; transform: scale(0.65); transition: opacity 0.35s, transform 0.35s; }
+    .menu-item:hover .hover-ring { opacity: 1; transform: scale(1); }
+    .hover-ring svg { width: 17px; height: 17px; fill: #fff; margin-left: 3px; }
+
+    /* ─── Item body ── */
+    .item-body { padding: 1.1rem 1.25rem 1.25rem; }
+    .item-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+    .item-name { font-family: 'Playfair Display', serif; font-size: 18px; font-weight: 600; color: var(--espresso); line-height: 1.3; }
+    .item-price { font-size: 15px; font-weight: 500; color: var(--gold); white-space: nowrap; padding-top: 3px; }
+    .item-desc { font-size: 13px; color: var(--smoke); line-height: 1.6; margin-top: 7px; font-weight: 300; }
+    .item-footer { display: flex; align-items: center; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
+    .tag { font-size: 10px; letter-spacing: 0.8px; padding: 3px 9px; border-radius: 3px; background: var(--tag-bg); color: var(--gold); font-weight: 500; text-transform: uppercase; }
+    .tag.veg { background: rgba(63,122,53,0.1); color: #3a7a30; }
+    .tag.hot { background: rgba(200,60,30,0.1); color: #c83c1e; }
+    .tag.new { background: rgba(44,26,14,0.08); color: var(--espresso); }
+    .tag.special { background: rgba(201,146,42,0.22); color: #8a5f0e; }
+    .add-btn { margin-left: auto; width: 30px; height: 30px; border-radius: 50%; border: 0.5px solid var(--border); background: transparent; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--espresso); font-size: 20px; line-height: 1; transition: all 0.2s; font-family: 'DM Sans', sans-serif; flex-shrink: 0; }
+    .add-btn:hover { background: var(--espresso); color: #fff; border-color: var(--espresso); }
+    .add-btn.added { background: var(--espresso); color: #fff; border-color: var(--espresso); font-size: 14px; }
+
+    /* ─── Video overlay ── */
+    .video-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.84); display: flex; align-items: center; justify-content: center; z-index: 999; opacity: 0; pointer-events: none; transition: opacity 0.3s; padding: 1.5rem; }
+    .video-overlay.open { opacity: 1; pointer-events: all; }
+    .overlay-inner { max-width: 560px; width: 100%; position: relative; }
+    .overlay-video { width: 100%; border-radius: 10px; display: block; background: #000; max-height: 65vh; object-fit: cover; }
+    .overlay-close { position: absolute; top: -44px; right: 0; background: none; border: none; color: rgba(255,255,255,0.75); font-size: 26px; cursor: pointer; font-family: 'DM Sans', sans-serif; line-height: 1; transition: color 0.2s; }
+    .overlay-close:hover { color: #fff; }
+    .overlay-meta { margin-top: 18px; color: #fff; }
+    .overlay-name { font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 600; }
+    .overlay-desc { font-size: 14px; opacity: 0.65; margin-top: 5px; font-weight: 300; line-height: 1.55; }
+    .overlay-add { margin-top: 14px; display: inline-flex; align-items: center; gap: 8px; padding: 9px 20px; border-radius: 6px; background: var(--gold); color: #fff; border: none; font-size: 14px; font-weight: 500; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: background 0.2s; }
+    .overlay-add:hover { background: #b87e22; }
+
+    /* ─── Customize sheet (sugar / spice / ingredients) ── */
+    .customize-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 420; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+    .customize-backdrop.open { opacity: 1; pointer-events: all; }
+    .customize-sheet {
+      position: fixed; bottom: 0; left: 0; right: 0; background: var(--card-bg);
+      border-top: 1px solid var(--border); border-radius: 16px 16px 0 0; box-shadow: 0 -8px 30px rgba(0,0,0,0.15);
+      z-index: 430; max-height: 80vh; display: flex; flex-direction: column;
+      transform: translateY(100%); transition: transform 0.35s cubic-bezier(.4,0,.2,1);
+    }
+    .customize-sheet.open { transform: translateY(0); }
+    .customize-header { display: flex; align-items: center; justify-content: space-between; padding: 1.1rem 1.5rem 0.9rem; border-bottom: 0.5px solid var(--border); flex-shrink: 0; }
+    .customize-title { font-family: 'Playfair Display', serif; font-size: 18px; font-weight: 600; color: var(--espresso); }
+    .customize-close { background: none; border: none; font-size: 22px; color: var(--smoke); cursor: pointer; line-height: 1; }
+    .customize-close:hover { color: var(--espresso); }
+    .customize-body { padding: 1.25rem 1.5rem; overflow-y: auto; display: flex; flex-direction: column; gap: 1.4rem; }
+    .customize-section-label { font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--smoke); font-weight: 600; margin-bottom: 0.7rem; }
+    .customize-pill-row { display: flex; flex-wrap: wrap; gap: 8px; }
+    .customize-pill {
+      padding: 8px 16px; border-radius: 100px; border: 0.5px solid var(--border); background: var(--cream);
+      color: var(--espresso); font-size: 13px; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all 0.2s;
+    }
+    .customize-pill:hover { border-color: var(--gold); }
+    .customize-pill.selected { background: var(--espresso); color: #fff; border-color: var(--espresso); }
+    .customize-ingredient-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 0.5px solid var(--border); }
+    .customize-ingredient-row:last-child { border-bottom: none; }
+    .customize-ingredient-row input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--espresso); cursor: pointer; flex-shrink: 0; }
+    .customize-ingredient-row label { font-size: 13.5px; color: var(--espresso); cursor: pointer; text-transform: capitalize; }
+    .customize-ingredient-hint { font-size: 11.5px; color: var(--smoke); margin-top: -0.4rem; }
+    .customize-footer { padding: 1rem 1.5rem 1.4rem; border-top: 0.5px solid var(--border); flex-shrink: 0; }
+
+    /* ─── Cart bar ── */
+    .cart-bar { position: fixed; bottom: 0; left: 0; right: 0; background: var(--espresso); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.5rem; gap: 12px; transform: translateY(100%); transition: transform 0.35s cubic-bezier(.4,0,.2,1); z-index: 200; }
+    .cart-bar.visible { transform: translateY(0); }
+    .cart-left { display: flex; align-items: center; gap: 10px; }
+    .cart-count { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; background: var(--gold); border-radius: 50%; font-size: 12px; font-weight: 500; }
+    .cart-label { font-size: 14px; font-weight: 300; }
+    .cart-right { display: flex; align-items: center; gap: 16px; }
+    .cart-total { font-size: 17px; font-weight: 500; }
+    .view-order-btn { padding: 7px 18px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3); background: transparent; color: #fff; font-size: 13px; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: background 0.2s; }
+    .view-order-btn:hover { background: rgba(255,255,255,0.1); }
+
+    /* ─── Order panel ── */
+    .order-panel { position: fixed; bottom: 0; left: 0; right: 0; background: var(--card-bg); border-top: 1px solid var(--border); border-radius: 16px 16px 0 0; box-shadow: 0 -8px 30px rgba(0,0,0,0.15); z-index: 250; max-height: 70vh; display: flex; flex-direction: column; transform: translateY(100%); transition: transform 0.35s cubic-bezier(.4,0,.2,1); }
+    .order-panel.open { transform: translateY(0); }
+    .order-panel-header { display: flex; align-items: center; justify-content: space-between; padding: 1.1rem 1.5rem 0.9rem; border-bottom: 0.5px solid var(--border); }
+    .order-panel-title { font-family: 'Playfair Display', serif; font-size: 19px; font-weight: 600; color: var(--espresso); }
+    .order-panel-close { background: none; border: none; font-size: 22px; color: var(--smoke); cursor: pointer; line-height: 1; }
+    .order-panel-close:hover { color: var(--espresso); }
+
+    /* ─── Split by person ── */
+    .split-toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 0.7rem 1.5rem; border-bottom: 0.5px solid var(--border); }
+    .split-toggle { display: flex; align-items: center; gap: 9px; cursor: pointer; user-select: none; }
+    .split-toggle input { display: none; }
+    .split-toggle-track { width: 34px; height: 20px; border-radius: 100px; background: var(--border); position: relative; transition: background 0.2s; flex-shrink: 0; }
+    .split-toggle-thumb { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.25); transition: transform 0.2s; }
+    .split-toggle input:checked + .split-toggle-track { background: var(--gold); }
+    .split-toggle input:checked + .split-toggle-track .split-toggle-thumb { transform: translateX(14px); }
+    .split-toggle-label { font-size: 13px; color: var(--espresso); font-weight: 500; }
+
+    .people-editor { padding: 0.9rem 1.5rem; border-bottom: 0.5px solid var(--border); display: none; }
+    .people-editor.visible { display: block; }
+    .people-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 0.6rem; }
+    .person-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 8px 5px 12px; border-radius: 100px; background: var(--cream); border: 0.5px solid var(--border); font-size: 12.5px; color: var(--espresso); font-weight: 500; }
+    .person-chip-remove { width: 16px; height: 16px; border-radius: 50%; border: none; background: var(--border); color: var(--espresso); font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1; flex-shrink: 0; }
+    .person-chip-remove:hover { background: #c83c1e; color: #fff; }
+    .people-add-row { display: flex; gap: 6px; }
+    .people-add-row input { flex: 1; padding: 8px 12px; border-radius: 100px; border: 0.5px solid var(--border); background: var(--card-bg); font-family: 'DM Sans', sans-serif; font-size: 13px; color: var(--espresso); outline: none; }
+    .people-add-row input:focus { border-color: var(--gold); }
+    .people-add-btn { padding: 8px 14px; border-radius: 100px; border: none; background: var(--espresso); color: #fff; font-size: 12.5px; font-weight: 500; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: background 0.2s; white-space: nowrap; }
+    .people-add-btn:hover { background: #1d1108; }
+
+    .assign-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 0.6rem; padding-top: 0.6rem; border-top: 0.5px dashed var(--border); }
+    .assign-pill { display: flex; align-items: center; gap: 5px; background: var(--cream); border-radius: 100px; padding: 3px 3px 3px 10px; font-size: 11.5px; color: var(--espresso); }
+    .assign-pill-name { font-weight: 500; max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .assign-btn { width: 18px; height: 18px; border-radius: 50%; border: none; background: var(--card-bg); color: var(--espresso); font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1; box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
+    .assign-btn:hover { background: var(--espresso); color: #fff; }
+    .assign-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .assign-btn:disabled:hover { background: var(--card-bg); color: var(--espresso); }
+    .assign-count { font-weight: 600; min-width: 12px; text-align: center; }
+    .assign-unassigned { font-size: 11px; color: var(--gold); font-weight: 600; background: var(--tag-bg); padding: 4px 9px; border-radius: 100px; }
+    .order-list { overflow-y: auto; padding: 0.5rem 1.5rem; flex: 1; }
+    .order-row-wrap { padding: 0.85rem 0; border-bottom: 0.5px solid var(--border); }
+    .order-row-wrap:last-child { border-bottom: none; }
+    .order-row { display: flex; align-items: center; gap: 12px; }
+    .order-row-info { flex: 1; min-width: 0; }
+    .order-row-name { font-size: 14px; font-weight: 500; color: var(--espresso); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .order-row-price { font-size: 12px; color: var(--smoke); margin-top: 2px; }
+    .order-row-customization { font-size: 11.5px; color: var(--gold); margin-top: 3px; }
+    .qty-control { display: flex; align-items: center; gap: 10px; background: var(--cream); border-radius: 100px; padding: 4px 6px; }
+    .qty-btn { width: 24px; height: 24px; border-radius: 50%; border: none; background: var(--card-bg); color: var(--espresso); font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1; transition: background 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
+    .qty-btn:hover { background: var(--espresso); color: #fff; }
+    .qty-btn.remove-btn:hover { background: #c83c1e; color: #fff; }
+    .qty-value { font-size: 13px; font-weight: 500; min-width: 14px; text-align: center; }
+    .order-row-total { font-size: 14px; font-weight: 500; color: var(--gold); min-width: 56px; text-align: right; }
+    .order-panel-footer { padding: 1rem 1.5rem 1.4rem; border-top: 0.5px solid var(--border); }
+    .order-grand-total { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.9rem; }
+    .order-grand-label { font-size: 14px; color: var(--smoke); }
+    .order-grand-value { font-size: 19px; font-weight: 600; color: var(--espresso); }
+    .checkout-btn { width: 100%; padding: 13px; border-radius: 8px; border: none; background: var(--espresso); color: #fff; font-size: 14px; font-weight: 500; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: background 0.2s; }
+    .checkout-btn:hover { background: #1d1108; }
+    .order-empty { text-align: center; padding: 2.5rem 1rem; color: var(--smoke); font-size: 13px; }
+    .order-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 240; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+    .order-backdrop.open { opacity: 1; pointer-events: all; }
+
+    /* ─── Checkout Modal ── */
+    .checkout-modal { position: fixed; inset: 0; z-index: 900; display: flex; align-items: flex-end; justify-content: center; pointer-events: none; }
+    .checkout-modal.open { pointer-events: all; }
+    .checkout-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.6); opacity: 0; transition: opacity 0.3s; }
+    .checkout-modal.open .checkout-backdrop { opacity: 1; }
+    .checkout-sheet { position: relative; background: var(--card-bg); border-radius: 20px 20px 0 0; width: 100%; max-width: 600px; max-height: 90vh; display: flex; flex-direction: column; transform: translateY(100%); transition: transform 0.4s cubic-bezier(.4,0,.2,1); box-shadow: 0 -12px 40px rgba(0,0,0,0.2); overflow: hidden; }
+    .checkout-modal.open .checkout-sheet { transform: translateY(0); }
+
+    /* step dots */
+    .checkout-steps-dots { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 1.2rem 1.5rem 0; }
+    .step-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); transition: background 0.3s, width 0.3s; }
+    .step-dot.active { background: var(--espresso); width: 24px; border-radius: 4px; }
+    .step-dot.done { background: var(--gold); }
+
+    .checkout-header { display: flex; align-items: center; justify-content: space-between; padding: 0.9rem 1.5rem; border-bottom: 0.5px solid var(--border); }
+    .checkout-title { font-family: 'Playfair Display', serif; font-size: 19px; font-weight: 600; color: var(--espresso); }
+    .checkout-close-btn { background: none; border: none; font-size: 22px; color: var(--smoke); cursor: pointer; }
+    .checkout-close-btn:hover { color: var(--espresso); }
+
+    .checkout-steps-wrap { overflow: hidden; flex: 1; display: flex; flex-direction: column; min-height: 0; }
+    .checkout-step { display: none; flex-direction: column; flex: 1; min-height: 0; }
+    .checkout-step.active { display: flex; }
+
+    /* Step 1 — Details */
+    .checkout-form { padding: 1.25rem 1.5rem; display: flex; flex-direction: column; gap: 1rem; flex: 1; overflow-y: auto; }
+    .form-row { display: flex; flex-direction: column; gap: 5px; }
+    .form-row label { font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--smoke); font-weight: 500; }
+    .form-row input, .form-row select, .form-row textarea { padding: 11px 14px; border-radius: 8px; border: 0.5px solid var(--border); background: var(--cream); font-size: 14px; font-family: 'DM Sans', sans-serif; color: var(--espresso); outline: none; transition: border-color 0.2s; }
+    .form-row input:focus, .form-row select:focus, .form-row textarea:focus { border-color: var(--gold); }
+    .form-row textarea { resize: none; height: 72px; }
+    .form-row select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%237A6F65' fill='none' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; background-color: var(--cream); }
+    .table-availability-note { display: none; align-items: center; gap: 6px; font-size: 12px; margin-top: 7px; padding: 7px 11px; border-radius: 6px; }
+    .table-availability-note.visible { display: flex; }
+    .table-availability-note.ok { background: rgba(58,122,48,0.08); color: var(--green); }
+    .table-availability-note.full { background: rgba(201,146,42,0.12); color: #8a5f0e; }
+    .table-availability-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+    .form-row-half { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .order-type-toggle { display: flex; gap: 8px; }
+    .type-btn { flex: 1; padding: 10px; border-radius: 8px; border: 0.5px solid var(--border); background: transparent; color: var(--smoke); font-size: 13px; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all 0.2s; text-align: center; }
+    .type-btn.selected { background: var(--espresso); color: #fff; border-color: var(--espresso); }
+
+    /* Step 2 — Payment */
+    .express-pay-row { display: flex; gap: 10px; }
+    .express-btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 11px 8px; border-radius: 8px; border: 0.5px solid var(--border); cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; transition: all 0.2s; }
+    .apple-pay { background: #000; color: #fff; border-color: #000; }
+    .apple-pay:hover { background: #222; }
+    .apple-pay svg { width: 42px; height: 16px; fill: #fff; }
+    .google-pay { background: #fff; color: #3C4043; border-color: #dadce0; }
+    .google-pay:hover { background: #f8f8f8; }
+    .google-pay svg { width: 48px; height: 20px; }
+    .paypal-btn { background: #FFC43A; color: #003087; border-color: #FFC43A; }
+    .paypal-btn:hover { background: #f0b82e; }
+    .paypal-btn svg { width: 56px; height: 15px; }
+    .counter-btn { background: var(--cream); color: var(--espresso); border-color: var(--border); }
+    .counter-btn:hover { background: var(--card-bg); border-color: var(--espresso); }
+    .pay-divider { display: flex; align-items: center; gap: 12px; color: var(--smoke); font-size: 12px; letter-spacing: 1px; text-transform: uppercase; }
+    .pay-divider::before, .pay-divider::after { content: ''; flex: 1; height: 0.5px; background: var(--border); }
+    .provider-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .provider-btn { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 8px; border: 0.5px solid var(--border); background: var(--cream); cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 13px; color: var(--espresso); transition: all 0.2s; }
+    .provider-btn svg { width: 28px; height: 28px; flex-shrink: 0; }
+    .provider-btn.selected { border-color: var(--espresso); background: var(--card-bg); box-shadow: 0 0 0 1.5px var(--espresso); }
+    .provider-btn:hover:not(.selected) { background: var(--card-bg); }
+    .card-input-wrap { position: relative; }
+    .card-input-wrap input { width: 100%; padding-right: 48px; }
+    .card-type-icon { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); font-size: 18px; pointer-events: none; }
+    .pay-secure-note { display: flex; align-items: flex-start; gap: 7px; font-size: 11px; color: var(--smoke); line-height: 1.5; padding: 10px 12px; background: rgba(58,122,48,0.06); border-radius: 6px; border: 0.5px solid rgba(58,122,48,0.2); }
+    .pay-secure-note svg { flex-shrink: 0; margin-top: 1px; }
+    .pay-secure-note span { font-weight: 500; color: var(--espresso); }
+
+    /* Step 3 — Review */
+    .review-scroll { overflow-y: auto; flex: 1; }
+    .review-section { padding: 1rem 1.5rem; }
+    .review-section + .review-section { border-top: 0.5px solid var(--border); }
+    .review-label { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--smoke); margin-bottom: 0.6rem; font-weight: 500; }
+    .review-info { font-size: 14px; color: var(--espresso); line-height: 1.7; }
+    .review-items { display: flex; flex-direction: column; gap: 6px; }
+    .review-item-row { display: flex; justify-content: space-between; font-size: 14px; }
+    .review-item-name { color: var(--espresso); }
+    .review-item-price { color: var(--gold); font-weight: 500; }
+    .review-totals { display: flex; flex-direction: column; gap: 4px; }
+    .review-total-row { display: flex; justify-content: space-between; font-size: 13px; color: var(--smoke); }
+    .review-total-row.grand { font-size: 16px; font-weight: 600; color: var(--espresso); padding-top: 8px; border-top: 0.5px solid var(--border); margin-top: 4px; }
+    .review-payment-badge { display: inline-flex; align-items: center; gap: 8px; background: var(--cream); border: 0.5px solid var(--border); border-radius: 6px; padding: 8px 12px; font-size: 13px; color: var(--espresso); }
+
+    /* Step 4 — Confirmation */
+    .confirm-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3rem 2rem; text-align: center; flex: 1; overflow-y: auto; }
+    .confirm-icon { width: 72px; height: 72px; background: rgba(63,122,53,0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 1.25rem; }
+    .confirm-icon svg { width: 36px; height: 36px; }
+    .confirm-title { font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 600; color: var(--espresso); margin-bottom: 8px; }
+    .confirm-sub { font-size: 14px; color: var(--smoke); line-height: 1.6; margin-bottom: 1.5rem; }
+    .confirm-order-num { font-size: 13px; color: var(--smoke); margin-bottom: 1.75rem; }
+    .confirm-order-num span { font-weight: 600; color: var(--espresso); font-size: 16px; }
+    .confirm-eta { display: inline-flex; align-items: center; gap: 8px; background: var(--cream); border: 0.5px solid var(--border); border-radius: 100px; padding: 8px 18px; font-size: 13px; color: var(--espresso); margin-bottom: 2rem; }
+    .confirm-eta-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); animation: pulse 1.5s infinite; }
+    .confirm-timestamps { font-size: 12px; color: var(--smoke); margin-bottom: 1.75rem; line-height: 1.7; }
+    .new-order-btn { padding: 12px 32px; border-radius: 8px; border: 0.5px solid var(--border); background: transparent; color: var(--espresso); font-size: 14px; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all 0.2s; }
+    .new-order-btn:hover { background: var(--espresso); color: #fff; }
+
+    /* Footer buttons */
+    .checkout-footer { padding: 1rem 1.5rem 1.4rem; border-top: 0.5px solid var(--border); display: flex; gap: 10px; flex-shrink: 0; }
+    .btn-back { padding: 12px 20px; border-radius: 8px; border: 0.5px solid var(--border); background: transparent; color: var(--espresso); font-size: 14px; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: background 0.2s; white-space: nowrap; }
+    .btn-back:hover { background: var(--cream); }
+    .btn-next { flex: 1; padding: 12px; border-radius: 8px; border: none; background: var(--espresso); color: #fff; font-size: 14px; font-weight: 500; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: background 0.2s; }
+    .btn-next:hover { background: #1d1108; }
+
+    /* ─── Stripe Elements container ── */
+    #stripe-card-element {
+      padding: 11px 14px; border-radius: 8px; border: 0.5px solid var(--border);
+      background: var(--cream); transition: border-color 0.2s;
+    }
+    #stripe-card-element.StripeElement--focus { border-color: var(--gold); }
+    #stripe-card-element.StripeElement--invalid { border-color: #c83c1e; }
+    #stripe-payment-request-btn { min-height: 44px; }
+    #stripe-payment-request-btn iframe { border-radius: 8px !important; }
+    .pay-error { color: #c83c1e; font-size: 13px; margin-top: 6px; display: none; }
+    .pay-error.visible { display: block; }
+    .pay-processing {
+      display: none; align-items: center; justify-content: center; gap: 10px;
+      padding: 12px; background: rgba(58,122,48,0.06);
+      border: 0.5px solid rgba(58,122,48,0.2); border-radius: 8px;
+      font-size: 13px; color: var(--green);
+    }
+    .pay-processing.visible { display: flex; }
+    .pay-spinner {
+      width: 16px; height: 16px; border: 2px solid rgba(58,122,48,0.3);
+      border-top-color: var(--green); border-radius: 50%;
+      animation: spin 0.7s linear infinite; flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .prb-unavailable-note {
+      font-size: 12px; color: var(--smoke); text-align: center;
+      padding: 8px; display: none;
+    }
+
+    /* ─── Language toggle ── */
+    .lang-toggle {
+      display: flex; align-items: center; gap: 4px; padding: 6px 10px;
+      border: 0.5px solid var(--border); border-radius: 6px; background: transparent;
+      color: var(--smoke); font-size: 12px; font-family: 'DM Sans', sans-serif; cursor: pointer;
+      transition: all 0.2s;
+    }
+    .lang-toggle:hover { color: var(--espresso); border-color: var(--espresso); }
+    .lang-toggle svg { width: 13px; height: 13px; flex-shrink: 0; }
+    .lang-code { font-weight: 500; letter-spacing: 0.5px; }
+
+    .header-actions {
+      position: absolute; right: 1.25rem; top: 50%; transform: translateY(-50%);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .kitchen-link {
+      display: flex; align-items: center; justify-content: center;
+      width: 30px; height: 30px; font-size: 15px; color: var(--smoke);
+      text-decoration: none; border: 0.5px solid var(--border);
+      border-radius: 6px; transition: all 0.2s; flex-shrink: 0;
+    }
+    .kitchen-link:hover { color: var(--espresso); border-color: var(--espresso); }
+
+    /* ─── Order Status tracker ── */
+    .order-status-btn {
+      display: none; align-items: center; gap: 7px;
+      padding: 6px 12px; border-radius: 100px; border: 0.5px solid var(--border);
+      background: var(--cream); color: var(--espresso);
+      font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500; cursor: pointer;
+      transition: all 0.2s; white-space: nowrap;
+    }
+    .order-status-btn.visible { display: flex; }
+    .order-status-btn:hover { border-color: var(--gold); }
+    .order-status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--blue, #60A5FA); flex-shrink: 0; }
+    .order-status-dot.stage-placed { background: #60A5FA; }
+    .order-status-dot.stage-prep { background: var(--gold); animation: pulse 1.5s infinite; }
+    .order-status-dot.stage-ready { background: var(--green); animation: pulse 1.5s infinite; }
+    .order-status-dot.stage-done { background: var(--smoke); }
+
+    .order-status-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 340; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+    .order-status-backdrop.open { opacity: 1; pointer-events: all; }
+    .order-status-panel {
+      position: fixed; bottom: 0; left: 0; right: 0; background: var(--card-bg);
+      border-top: 1px solid var(--border); border-radius: 16px 16px 0 0; box-shadow: 0 -8px 30px rgba(0,0,0,0.15);
+      z-index: 350; max-height: 75vh; display: flex; flex-direction: column;
+      transform: translateY(100%); transition: transform 0.35s cubic-bezier(.4,0,.2,1);
+    }
+    .order-status-panel.open { transform: translateY(0); }
+    .order-status-header { display: flex; align-items: center; justify-content: space-between; padding: 1.1rem 1.5rem 0.9rem; border-bottom: 0.5px solid var(--border); }
+    .order-status-title { font-family: 'Playfair Display', serif; font-size: 19px; font-weight: 600; color: var(--espresso); }
+    .order-status-close { background: none; border: none; font-size: 22px; color: var(--smoke); cursor: pointer; line-height: 1; }
+    .order-status-close:hover { color: var(--espresso); }
+    .order-status-body { padding: 1.5rem; overflow-y: auto; }
+    .order-status-num { font-size: 13px; color: var(--smoke); margin-bottom: 1.5rem; }
+    .order-status-num strong { color: var(--espresso); font-weight: 600; font-size: 15px; }
+
+    .stepper { display: flex; align-items: flex-start; margin-bottom: 1.5rem; }
+    .stepper-step { flex: 1; display: flex; flex-direction: column; align-items: center; position: relative; }
+    .stepper-node {
+      width: 34px; height: 34px; border-radius: 50%; background: var(--cream); border: 2px solid var(--border);
+      display: flex; align-items: center; justify-content: center; font-size: 15px; color: var(--smoke);
+      transition: all 0.3s; z-index: 2;
+    }
+    .stepper-step.done .stepper-node { background: var(--green); border-color: var(--green); color: #fff; }
+    .stepper-step.current .stepper-node { background: var(--gold); border-color: var(--gold); color: #fff; animation: pulse 1.5s infinite; }
+    .stepper-line { position: absolute; top: 17px; left: -50%; width: 100%; height: 2px; background: var(--border); z-index: 1; }
+    .stepper-step:first-child .stepper-line { display: none; }
+    .stepper-step.done .stepper-line, .stepper-step.current .stepper-line { background: var(--green); }
+    .stepper-label { font-size: 10.5px; text-align: center; color: var(--smoke); margin-top: 8px; font-weight: 500; letter-spacing: 0.3px; }
+    .stepper-step.done .stepper-label, .stepper-step.current .stepper-label { color: var(--espresso); }
+
+    .order-status-msg { text-align: center; padding: 0.9rem; background: var(--cream); border-radius: 8px; font-size: 14px; color: var(--espresso); font-weight: 500; margin-bottom: 1.25rem; }
+    .order-status-items { border-top: 0.5px solid var(--border); padding-top: 1rem; }
+    .order-status-item-row { display: flex; justify-content: space-between; font-size: 13px; color: var(--smoke); padding: 0.3rem 0; }
+    .order-status-dismiss { width: 100%; padding: 11px; border-radius: 8px; border: 0.5px solid var(--border); background: transparent; color: var(--smoke); font-size: 13px; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all 0.2s; margin-top: 0.5rem; }
+    .order-status-dismiss:hover { background: var(--cream); color: var(--espresso); }
+
+    /* ─── Footer ── */
+    .menu-footer { text-align: center; padding: 2.5rem 1.5rem 5rem; font-size: 12px; color: var(--smoke); border-top: 0.5px solid var(--border); line-height: 1.8; }
+    .menu-footer strong { color: var(--espresso); font-weight: 500; }
+    .empty-state { text-align: center; padding: 4rem 2rem; color: var(--smoke); font-size: 14px; grid-column: 1 / -1; background: var(--card-bg); }
+    .empty-state p:first-child { font-family: 'Playfair Display', serif; font-size: 20px; color: var(--espresso); margin-bottom: 8px; }
+
+    /* ─── Call for Service (header button) ── */
+    .call-service-btn {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 12px; border-radius: 6px; border: 0.5px solid var(--border);
+      background: transparent; color: var(--smoke);
+      font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500; cursor: pointer;
+      transition: all 0.2s; white-space: nowrap;
+    }
+    .call-service-btn:hover { color: var(--espresso); border-color: var(--espresso); }
+    .call-service-btn svg { width: 14px; height: 14px; flex-shrink: 0; }
+    .call-service-btn .bell-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--gold); flex-shrink: 0; }
+
+    .service-modal { position: fixed; inset: 0; z-index: 950; display: flex; align-items: center; justify-content: center; pointer-events: none; opacity: 0; transition: opacity 0.25s; padding: 1.25rem; }
+    .service-modal.open { opacity: 1; pointer-events: all; }
+    .service-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.5); }
+    .service-sheet { position: relative; width: 100%; max-width: 380px; background: var(--card-bg); border-radius: 16px; box-shadow: 0 12px 40px rgba(0,0,0,0.2); overflow: hidden; transform: translateY(12px) scale(0.98); transition: transform 0.25s; }
+    .service-modal.open .service-sheet { transform: translateY(0) scale(1); }
+    .service-header { display: flex; align-items: center; justify-content: space-between; padding: 1.1rem 1.4rem 0.6rem; }
+    .service-title { font-family: 'Playfair Display', serif; font-size: 18px; font-weight: 600; color: var(--espresso); }
+    .service-close { background: none; border: none; font-size: 20px; color: var(--smoke); cursor: pointer; line-height: 1; }
+    .service-close:hover { color: var(--espresso); }
+    .service-body { padding: 0.4rem 1.4rem 1.4rem; display: flex; flex-direction: column; gap: 0.9rem; }
+    .service-hint { font-size: 12.5px; color: var(--smoke); line-height: 1.55; }
+    .service-table-row { display: flex; flex-direction: column; gap: 5px; }
+    .service-table-row label { font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--smoke); font-weight: 500; }
+    .service-table-row select { padding: 11px 14px; border-radius: 8px; border: 0.5px solid var(--border); background: var(--cream); font-size: 14px; font-family: 'DM Sans', sans-serif; color: var(--espresso); outline: none; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%237A6F65' fill='none' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; }
+    .service-reasons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .reason-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 14px 8px; border-radius: 10px; border: 0.5px solid var(--border); background: var(--cream); cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 12.5px; color: var(--espresso); text-align: center; transition: all 0.2s; }
+    .reason-btn span.emoji { font-size: 19px; }
+    .reason-btn:hover { border-color: var(--gold); background: var(--card-bg); }
+    .reason-btn.selected { border-color: var(--espresso); background: var(--espresso); color: #fff; }
+    .service-send-btn { width: 100%; padding: 13px; border-radius: 8px; border: none; background: var(--gold); color: #fff; font-size: 14px; font-weight: 500; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: background 0.2s; }
+    .service-send-btn:hover { background: #b87e22; }
+    .service-send-btn:disabled { background: var(--border); color: var(--smoke); cursor: not-allowed; }
+    .service-confirm { display: none; flex-direction: column; align-items: center; text-align: center; padding: 1.6rem 1.4rem 1.8rem; gap: 10px; }
+    .service-confirm.visible { display: flex; }
+    .service-confirm-icon { width: 52px; height: 52px; border-radius: 50%; background: rgba(58,122,48,0.1); display: flex; align-items: center; justify-content: center; }
+    .service-confirm-title { font-family: 'Playfair Display', serif; font-size: 17px; font-weight: 600; color: var(--espresso); }
+    .service-confirm-sub { font-size: 13px; color: var(--smoke); line-height: 1.5; }
+
+    /* ─── AI Menu Assistant ── */
+    .ai-assistant-fab {
+      position: fixed; right: 1.25rem; bottom: 1.25rem; z-index: 260;
+      width: 54px; height: 54px; border-radius: 50%; border: none;
+      background: var(--espresso); color: #fff; box-shadow: 0 6px 18px rgba(44,26,14,0.3);
+      display: flex; align-items: center; justify-content: center; cursor: pointer;
+      transition: transform 0.2s, bottom 0.3s, background 0.2s;
+    }
+    .ai-assistant-fab:hover { background: #1d1108; transform: translateY(-2px); }
+    .ai-assistant-fab.raised { bottom: 5.5rem; }
+    .ai-assistant-fab svg { width: 23px; height: 23px; }
+    .ai-assistant-fab .ai-spark { position: absolute; top: 9px; right: 10px; width: 8px; height: 8px; border-radius: 50%; background: var(--gold-light); }
+
+    .ai-panel-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 370; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+    .ai-panel-backdrop.open { opacity: 1; pointer-events: all; }
+    .ai-panel {
+      position: fixed; bottom: 0; left: 0; right: 0; margin: 0 auto; max-width: 440px;
+      background: var(--card-bg); border-radius: 16px 16px 0 0; box-shadow: 0 -8px 30px rgba(0,0,0,0.18);
+      z-index: 380; max-height: 82vh; display: flex; flex-direction: column;
+      transform: translateY(100%); transition: transform 0.35s cubic-bezier(.4,0,.2,1);
+    }
+    .ai-panel.open { transform: translateY(0); }
+    .ai-panel-header { display: flex; align-items: center; gap: 10px; padding: 1.1rem 1.4rem 0.9rem; border-bottom: 0.5px solid var(--border); }
+    .ai-panel-icon { width: 34px; height: 34px; border-radius: 50%; background: var(--espresso); color: #fff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .ai-panel-icon svg { width: 17px; height: 17px; }
+    .ai-panel-title-wrap { flex: 1; min-width: 0; }
+    .ai-panel-title { font-family: 'Playfair Display', serif; font-size: 17px; font-weight: 600; color: var(--espresso); line-height: 1.2; }
+    .ai-panel-subtitle { font-size: 11px; color: var(--smoke); margin-top: 1px; }
+    .ai-panel-close { background: none; border: none; font-size: 20px; color: var(--smoke); cursor: pointer; line-height: 1; flex-shrink: 0; }
+    .ai-panel-close:hover { color: var(--espresso); }
+
+    .ai-messages { flex: 1; overflow-y: auto; padding: 1rem 1.2rem; display: flex; flex-direction: column; gap: 0.7rem; min-height: 220px; }
+    .ai-msg { max-width: 86%; padding: 9px 13px; border-radius: 14px; font-size: 13px; line-height: 1.5; }
+    .ai-msg.user { align-self: flex-end; background: var(--espresso); color: #fff; border-bottom-right-radius: 4px; }
+    .ai-msg.assistant { align-self: flex-start; background: var(--cream); color: var(--espresso); border-bottom-left-radius: 4px; }
+    .ai-msg.assistant.disclaimer { background: rgba(201,146,42,0.1); color: #8a5f0e; font-size: 11.5px; font-style: italic; }
+
+    .ai-dish-cards { align-self: flex-start; max-width: 92%; display: flex; flex-direction: column; gap: 6px; }
+    .ai-dish-card { display: flex; align-items: center; gap: 10px; background: var(--card-bg); border: 0.5px solid var(--border); border-radius: 10px; padding: 8px 10px; }
+    .ai-dish-thumb { width: 40px; height: 40px; border-radius: 7px; object-fit: cover; flex-shrink: 0; background: #EDE8DF; }
+    .ai-dish-info { flex: 1; min-width: 0; }
+    .ai-dish-name { font-size: 12.5px; font-weight: 600; color: var(--espresso); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ai-dish-price { font-size: 11.5px; color: var(--gold); font-weight: 500; }
+    .ai-dish-add { width: 26px; height: 26px; border-radius: 50%; border: 0.5px solid var(--border); background: transparent; color: var(--espresso); font-size: 16px; cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+    .ai-dish-add:hover { background: var(--espresso); color: #fff; }
+    .ai-dish-add.added { background: var(--green); border-color: var(--green); color: #fff; font-size: 12px; }
+
+    .ai-typing { align-self: flex-start; display: flex; gap: 4px; padding: 10px 14px; background: var(--cream); border-radius: 14px; border-bottom-left-radius: 4px; }
+    .ai-typing span { width: 6px; height: 6px; border-radius: 50%; background: var(--smoke); animation: aiTypingBounce 1.2s infinite; }
+    .ai-typing span:nth-child(2) { animation-delay: 0.15s; }
+    .ai-typing span:nth-child(3) { animation-delay: 0.3s; }
+    @keyframes aiTypingBounce { 0%,60%,100%{ transform: translateY(0); opacity:0.5; } 30%{ transform: translateY(-4px); opacity:1; } }
+
+    .ai-quick-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 1.2rem 0.8rem; }
+    .ai-quick-chip { padding: 6px 12px; border-radius: 100px; border: 0.5px solid var(--border); background: var(--cream); color: var(--espresso); font-size: 11.5px; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+    .ai-quick-chip:hover { border-color: var(--gold); background: var(--card-bg); }
+
+    .ai-input-row { display: flex; gap: 8px; padding: 0.9rem 1.2rem 1.2rem; border-top: 0.5px solid var(--border); }
+    .ai-input { flex: 1; padding: 10px 14px; border-radius: 100px; border: 0.5px solid var(--border); background: var(--cream); font-family: 'DM Sans', sans-serif; font-size: 13px; color: var(--espresso); outline: none; }
+    .ai-input:focus { border-color: var(--gold); }
+    .ai-send-btn { width: 38px; height: 38px; border-radius: 50%; border: none; background: var(--espresso); color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background 0.2s; }
+    .ai-send-btn:hover { background: #1d1108; }
+    .ai-send-btn svg { width: 15px; height: 15px; }
+    .ai-mic-btn {
+      width: 38px; height: 38px; border-radius: 50%; border: 0.5px solid var(--border);
+      background: var(--cream); color: var(--espresso); cursor: pointer;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.2s;
+    }
+    .ai-mic-btn:hover { border-color: var(--gold); }
+    .ai-mic-btn svg { width: 16px; height: 16px; }
+    .ai-mic-btn.listening { background: #c83c1e; border-color: #c83c1e; color: #fff; animation: aiMicPulse 1.2s infinite; }
+    @keyframes aiMicPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(200,60,30,0.4); } 50% { box-shadow: 0 0 0 8px rgba(200,60,30,0); } }
+    .ai-voice-banner {
+      display: flex; align-items: center; gap: 8px; margin: 0 1.2rem 0.6rem; padding: 8px 12px;
+      background: rgba(200,60,30,0.08); border-radius: 8px; font-size: 12.5px; color: #c83c1e;
+    }
+    .ai-voice-banner .ai-voice-dot { width: 7px; height: 7px; border-radius: 50%; background: #c83c1e; animation: pulse 1.2s infinite; flex-shrink: 0; }
+
+    @media (max-width: 600px) {
+      .ai-panel { max-width: 100%; }
+      .ai-assistant-fab { right: 1rem; bottom: 1rem; }
+    }
+
+    @media (max-width: 600px) {
+      .menu-header { padding: 1.5rem 1rem 1.25rem; }
+      .wordmark { font-size: 22px; }
+      .header-actions {
+        position: static; transform: none; justify-content: center;
+        margin-top: 0.85rem; flex-wrap: wrap; gap: 8px;
+      }
+      .call-service-btn span.fab-label { display: none; }
+      .call-service-btn { padding: 8px; border-radius: 50%; }
+      .order-status-btn span#orderStatusBtnLabel { display: none; }
+      .order-status-btn { padding: 8px; border-radius: 50%; }
+      .search-row { padding: 0 1rem 1rem; }
+      .item-media { height: 180px; }
+      .express-pay-row { flex-direction: column; }
+      .provider-grid { grid-template-columns: 1fr 1fr; }
+    }
+
+    /* Playfair Display - Regular */
+    @font-face {
+      font-family: 'Playfair Display';
+      font-style: normal;
+      font-weight: 400;
+      font-display: swap;
+      src: url('../fonts/playfair-400.woff2') format('woff2');
+    }
+
+    /* Playfair Display - Semi-Bold */
+    @font-face {
+      font-family: 'Playfair Display';
+      font-style: normal;
+      font-weight: 600;
+      font-display: swap;
+      src: url('../fonts/playfair-600.woff2') format('woff2');
+    }
+
+    /* Playfair Display - Italic */
+    @font-face {
+      font-family: 'Playfair Display';
+      font-style: italic;
+      font-weight: 400;
+      font-display: swap;
+      src: url('../fonts/playfair-400-italic.woff2') format('woff2');
+    }
+
+    /* DM Sans - Light */
+    @font-face {
+      font-family: 'DM Sans';
+      font-style: normal;
+      font-weight: 300;
+      font-display: swap;
+      src: url('../fonts/dmsans-300.woff2') format('woff2');
+    }
+
+    /* DM Sans - Regular */
+    @font-face {
+      font-family: 'DM Sans';
+      font-style: normal;
+      font-weight: 400;
+      font-display: swap;
+      src: url('../fonts/dmsans-400.woff2') format('woff2');
+    }
+
+    /* DM Sans - Medium */
+    @font-face {
+      font-family: 'DM Sans';
+      font-style: normal;
+      font-weight: 500;
+      font-display: swap;
+      src: url('../fonts/dmsans-500.woff2') format('woff2');
+    }
+  </style>
+</head>
+<body>
+
+  <header class="menu-header">
+    <div class="wordmark">Ideal Café &amp; Creamery</div>
+    <div class="tagline" data-i18n="tagline">artesan café &amp; desserts</div>
+    <div class="header-actions">
+      <button class="lang-toggle" id="langToggle" aria-label="Change language">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.7 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.7-3.8-9s1.3-6.4 3.8-9z" stroke="currentColor" stroke-width="1.5"/></svg>
+        <span class="lang-code" id="langCode">EN</span>
+      </button>
+      <button class="call-service-btn" id="callServiceFab" aria-label="Call for service">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2a7 7 0 0 0-7 7v3.6c0 .6-.2 1.2-.6 1.7L3 16.5c-.6.8 0 2 1 2h16c1 0 1.6-1.2 1-2l-1.4-2.2c-.4-.5-.6-1.1-.6-1.7V9a7 7 0 0 0-7-7z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M9.5 20.5a2.5 2.5 0 0 0 5 0" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        <span class="fab-label" data-i18n="callForService">Call for service</span>
+      </button>
+      <button class="order-status-btn" id="orderStatusBtn" aria-label="Track order">
+        <span class="order-status-dot stage-placed" id="orderStatusDot"></span>
+        <span id="orderStatusBtnLabel" data-i18n="trackOrder">Track order</span>
+      </button>
+      <a href="kitchen.html" class="kitchen-link" aria-label="Kitchen display">🍳</a>
+    </div>
+  </header>
+
+  <nav class="category-tabs" id="tabs" aria-label="Menu categories">
+    <button class="tab active" data-cat="all" data-i18n="tabAll">All</button>
+    <button class="tab" data-cat="drinks" data-i18n="tabDrinks">Drinks</button>
+    <button class="tab" data-cat="food" data-i18n="tabFood">Food</button>
+    <button class="tab" data-cat="desserts" data-i18n="tabDesserts">Desserts</button>
+    <button class="tab" data-cat="brunch" data-i18n="tabBrunch">Brunch</button>
+    <button class="tab" data-cat="specials" data-i18n="tabSpecials">⭐ Specials</button>
+  </nav>
+
+  <div class="search-row">
+    <div class="search-field-wrap">
+      <svg class="search-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <input type="text" class="search-input" id="searchInput" data-i18n-placeholder="searchPlaceholder" placeholder="Search the menu…" autocomplete="off" />
+      <button class="search-clear-btn" id="searchClearBtn" aria-label="Clear search">✕</button>
+    </div>
+  </div>
+
+  <div class="section-label" id="sectionLabel" aria-live="polite">All items</div>
+  <main class="menu-grid" id="menuGrid" aria-label="Menu items"></main>
+
+  <footer class="menu-footer" id="menuFooter" data-i18n-html="footerText">
+    Hover over any dish to watch a <strong>live video preview</strong>.<br>
+    Click the image to view full screen · Tap <strong>+</strong> to add to your order.<br><br>
+    Please inform staff of any allergies. All prices include tax.
+  </footer>
+
+  <!-- Service request modal -->
+  <div class="service-modal" id="serviceModal" role="dialog" aria-modal="true" aria-label="Call for service">
+    <div class="service-backdrop" id="serviceBackdrop"></div>
+    <div class="service-sheet">
+      <div id="serviceRequestView">
+        <div class="service-header">
+          <div class="service-title" data-i18n="needSomething">Need something?</div>
+          <button class="service-close" id="serviceClose" aria-label="Close">✕</button>
+        </div>
+        <div class="service-body">
+          <div class="service-hint" data-i18n="serviceHint">Let us know your table and what you need — a staff member will head your way shortly.</div>
+          <div class="service-table-row">
+            <label data-i18n="tableNumber">Table number</label>
+            <select id="serviceTable">
+              <option value="" data-i18n="selectTable">Select table…</option>
+              <option data-i18n="table1">Table 1</option><option data-i18n="table2">Table 2</option><option data-i18n="table3">Table 3</option>
+              <option data-i18n="table4">Table 4</option><option data-i18n="table5">Table 5</option><option data-i18n="table6">Table 6</option>
+              <option data-i18n="table7">Table 7</option><option data-i18n="table8">Table 8</option><option data-i18n="table9">Table 9</option>
+              <option data-i18n="table10">Table 10</option>
+            </select>
+          </div>
+          <div class="service-reasons" id="serviceReasons">
+            <button class="reason-btn" data-reason-key="reasonAssist" data-reason="Need assistance"><span class="emoji">🙋</span><span data-i18n="reasonAssist">Need assistance</span></button>
+            <button class="reason-btn" data-reason-key="reasonWater" data-reason="Water refill"><span class="emoji">💧</span><span data-i18n="reasonWater">Water refill</span></button>
+            <button class="reason-btn" data-reason-key="reasonReady" data-reason="Ready to order"><span class="emoji">📝</span><span data-i18n="reasonReady">Ready to order</span></button>
+            <button class="reason-btn" data-reason-key="reasonCheck" data-reason="Request the check"><span class="emoji">🧾</span><span data-i18n="reasonCheck">Request the check</span></button>
+          </div>
+          <button class="service-send-btn" id="serviceSendBtn" disabled data-i18n="callStaff">Call staff</button>
+        </div>
+      </div>
+      <div class="service-confirm" id="serviceConfirm">
+        <div class="service-confirm-icon">
+          <svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="18" cy="18" r="17" stroke="#3a7a30" stroke-width="1.5"/><path d="M11 18l5 5 9-9" stroke="#3a7a30" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div class="service-confirm-title" data-i18n="onOurWay">We're on our way!</div>
+        <div class="service-confirm-sub" id="serviceConfirmSub">A staff member has been notified and will be with you shortly.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Order status tracker panel -->
+  <div class="order-status-backdrop" id="orderStatusBackdrop"></div>
+  <div class="order-status-panel" id="orderStatusPanel" role="dialog" aria-modal="true" aria-label="Order status">
+    <div class="order-status-header">
+      <div class="order-status-title" data-i18n="orderStatusTitle">Order Status</div>
+      <button class="order-status-close" id="orderStatusClose" aria-label="Close">✕</button>
+    </div>
+    <div class="order-status-body" id="orderStatusBody"></div>
+  </div>
+
+  <!-- AI Menu Assistant -->
+  <button class="ai-assistant-fab" id="aiAssistantFab" aria-label="Ask the menu assistant">
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3l1.8 4.6L18 9.5l-4.2 1.9L12 16l-1.8-4.6L6 9.5l4.2-1.9L12 3z" fill="currentColor"/><path d="M19 14l.9 2.2L22 17l-2.1.8L19 20l-.9-2.2L16 17l2.1-.8L19 14z" fill="currentColor"/></svg>
+    <span class="ai-spark"></span>
+  </button>
+
+  <div class="ai-panel-backdrop" id="aiPanelBackdrop"></div>
+  <div class="ai-panel" id="aiPanel" role="dialog" aria-modal="true" aria-label="Menu assistant">
+    <div class="ai-panel-header">
+      <div class="ai-panel-icon">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3l1.8 4.6L18 9.5l-4.2 1.9L12 16l-1.8-4.6L6 9.5l4.2-1.9L12 3z" fill="currentColor"/></svg>
+      </div>
+      <div class="ai-panel-title-wrap">
+        <div class="ai-panel-title" data-i18n="aiAssistantTitle">Menu Assistant</div>
+        <div class="ai-panel-subtitle" data-i18n="aiAssistantSubtitle">Ask about dishes, diets, or prices</div>
+      </div>
+      <button class="ai-panel-close" id="aiPanelClose" aria-label="Close">✕</button>
+    </div>
+    <div class="ai-messages" id="aiMessages"></div>
+    <div class="ai-quick-chips" id="aiQuickChips"></div>
+    <div class="ai-voice-banner" id="aiVoiceBanner" style="display:none">
+      <span class="ai-voice-dot"></span>
+      <span id="aiVoiceBannerText">Listening…</span>
+    </div>
+    <div class="ai-input-row">
+      <button class="ai-mic-btn" id="aiMicBtn" aria-label="Speak your order" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" stroke="currentColor" stroke-width="1.8"/><path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v3M9 21h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+      <input type="text" class="ai-input" id="aiInput" data-i18n-placeholder="aiInputPlaceholder" placeholder="Ask about the menu…" autocomplete="off" />
+      <button class="ai-send-btn" id="aiSendBtn" aria-label="Send">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 2l-7 20-4-9-9-4 20-7z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Cart bar -->
+  <div class="cart-bar" id="cartBar" role="status" aria-live="polite">
+    <div class="cart-left">
+      <span class="cart-count" id="cartCount">0</span>
+      <span class="cart-label" data-i18n="itemsInOrder">items in order</span>
+    </div>
+    <div class="cart-right">
+      <span class="cart-total" id="cartTotal">$0.00</span>
+      <button class="view-order-btn" id="viewOrderBtn" data-i18n="viewOrder">View order</button>
+    </div>
+  </div>
+
+  <!-- Order panel backdrop -->
+  <div class="order-backdrop" id="orderBackdrop"></div>
+
+  <!-- Order panel -->
+  <div class="order-panel" id="orderPanel" role="dialog" aria-modal="true" aria-label="Your order">
+    <div class="order-panel-header">
+      <div class="order-panel-title" data-i18n="yourOrder">Your Order</div>
+      <button class="order-panel-close" id="orderPanelClose" aria-label="Close order panel">✕</button>
+    </div>
+    <div class="split-toggle-row">
+      <label class="split-toggle">
+        <input type="checkbox" id="splitToggle" />
+        <span class="split-toggle-track"><span class="split-toggle-thumb"></span></span>
+        <span class="split-toggle-label" data-i18n="splitByPerson">Split by person</span>
+      </label>
+    </div>
+    <div class="people-editor" id="peopleEditor">
+      <div class="people-chips" id="peopleChips"></div>
+      <div class="people-add-row">
+        <input type="text" id="newPersonInput" data-i18n-placeholder="addPersonPh" placeholder="Add a name…" maxlength="20" />
+        <button class="people-add-btn" id="addPersonBtn" data-i18n="addPersonBtn">+ Add</button>
+      </div>
+    </div>
+    <div class="order-list" id="orderList"></div>
+    <div class="order-panel-footer">
+      <div class="order-grand-total">
+        <span class="order-grand-label" data-i18n="total">Total</span>
+        <span class="order-grand-value" id="orderGrandTotal">$0.00</span>
+      </div>
+      <button class="checkout-btn" id="openCheckoutBtn" data-i18n="placeOrder">Place order →</button>
+    </div>
+  </div>
+
+  <!-- Video overlay -->
+  <div class="video-overlay" id="videoOverlay" role="dialog" aria-modal="true" aria-label="Dish video preview">
+    <div class="overlay-inner">
+      <button class="overlay-close" id="overlayClose" aria-label="Close preview">✕</button>
+      <video class="overlay-video" id="overlayVideo" autoplay muted loop playsinline></video>
+      <div class="overlay-meta">
+        <div class="overlay-name" id="overlayName"></div>
+        <div class="overlay-desc" id="overlayDesc"></div>
+        <button class="overlay-add" id="overlayAdd">+ Add to order</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Customize sheet: sugar level, spice level, ingredients -->
+  <div class="customize-backdrop" id="customizeBackdrop"></div>
+  <div class="customize-sheet" id="customizeSheet" role="dialog" aria-modal="true" aria-label="Customize item">
+    <div class="customize-header">
+      <div class="customize-title" id="customizeTitle">Customize</div>
+      <button class="customize-close" id="customizeClose" aria-label="Close">✕</button>
+    </div>
+    <div class="customize-body" id="customizeBody"></div>
+    <div class="customize-footer">
+      <button class="checkout-btn" id="customizeAddBtn">+ Add to order</button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       CHECKOUT MODAL  (4 steps)
+       Step 0 — Your Details
+       Step 1 — Payment
+       Step 2 — Review
+       Step 3 — Confirmed
+  ══════════════════════════════════════════ -->
+  <div class="checkout-modal" id="checkoutModal" role="dialog" aria-modal="true" aria-label="Checkout">
+    <div class="checkout-backdrop" id="checkoutBackdrop"></div>
+    <div class="checkout-sheet">
+
+      <div class="checkout-steps-dots">
+        <div class="step-dot active" id="dot0"></div>
+        <div class="step-dot"        id="dot1"></div>
+        <div class="step-dot"        id="dot2"></div>
+        <div class="step-dot"        id="dot3"></div>
+      </div>
+
+      <div class="checkout-header">
+        <div class="checkout-title" id="checkoutTitle">Your Details</div>
+        <button class="checkout-close-btn" id="checkoutCloseBtn" aria-label="Close checkout">✕</button>
+      </div>
+
+      <div class="checkout-steps-wrap">
+
+        <!-- ── STEP 0: Customer Details ── -->
+        <div class="checkout-step active" id="step0">
+          <div class="checkout-form">
+            <div class="form-row">
+              <label data-i18n="orderType">Order type</label>
+              <div class="order-type-toggle">
+                <button class="type-btn selected" data-type="dine-in"  id="typeDineIn" data-i18n="dineIn">🍽 Dine In</button>
+                <button class="type-btn"          data-type="takeout"  id="typeTakeout" data-i18n="takeoutType">🥡 Takeout</button>
+                <button class="type-btn"          data-type="delivery" id="typeDelivery" data-i18n="deliveryType">🛵 Delivery</button>
+              </div>
+            </div>
+            <div class="form-row-half">
+              <div class="form-row">
+                <label data-i18n="firstName">First name *</label>
+                <input type="text" id="firstName" placeholder="Jane" data-i18n-placeholder="firstNamePh" autocomplete="given-name" />
+              </div>
+              <div class="form-row">
+                <label data-i18n="lastName">Last name *</label>
+                <input type="text" id="lastName"  placeholder="Smith" data-i18n-placeholder="lastNamePh" autocomplete="family-name" />
+              </div>
+            </div>
+            <div class="form-row">
+              <label data-i18n="phoneNumber">Phone number *</label>
+              <input type="tel" id="phone" placeholder="(555) 000-0000" autocomplete="tel" />
+            </div>
+            <div class="form-row" id="tableRow">
+              <label data-i18n="tableNumber">Table number</label>
+              <select id="tableNumber">
+                <option value="" data-i18n="selectTable">Select table…</option>
+                <option value="Table 1" data-i18n="table1">Table 1</option><option value="Table 2" data-i18n="table2">Table 2</option><option value="Table 3" data-i18n="table3">Table 3</option>
+                <option value="Table 4" data-i18n="table4">Table 4</option><option value="Table 5" data-i18n="table5">Table 5</option><option value="Table 6" data-i18n="table6">Table 6</option>
+                <option value="Table 7" data-i18n="table7">Table 7</option><option value="Table 8" data-i18n="table8">Table 8</option><option value="Table 9" data-i18n="table9">Table 9</option>
+                <option value="Table 10" data-i18n="table10">Table 10</option>
+              </select>
+              <div class="table-availability-note" id="tableAvailabilityNote"></div>
+            </div>
+            <div class="form-row" id="addressRow" style="display:none">
+              <label data-i18n="deliveryAddress">Delivery address *</label>
+              <input type="text" id="deliveryAddress" placeholder="123 Main St, City, State" data-i18n-placeholder="deliveryAddressPh" autocomplete="street-address" />
+            </div>
+            <div class="form-row">
+              <label data-i18n="specialInstructions">Special instructions</label>
+              <textarea id="specialInstructions" placeholder="Allergies, substitutions, or any notes…" data-i18n-placeholder="specialInstructionsPh"></textarea>
+            </div>
+          </div>
+          <div class="checkout-footer">
+            <button class="btn-next" id="btnStep0Next" data-i18n="paymentNextBtn">Payment →</button>
+          </div>
+        </div>
+
+        <!-- ── STEP 1: Payment ── -->
+        <div class="checkout-step" id="step1">
+          <div class="checkout-form">
+
+            <!-- Payment Request Button: Apple Pay / Google Pay (shown only if browser supports it) -->
+            <div class="form-row" id="prbRow" style="display:none">
+              <label data-i18n="expressCheckout">Express checkout</label>
+              <div id="stripe-payment-request-btn"></div>
+              <div class="prb-unavailable-note" id="prbNote" data-i18n="prbUnavailable">
+                Apple Pay / Google Pay not available on this device or browser.
+              </div>
+            </div>
+
+            <div class="pay-divider" id="prbDivider" style="display:none"><span data-i18n="orWithCard1">or pay with card</span></div>
+
+            <!-- PayPal express + Pay at the Counter -->
+            <div class="form-row">
+              <label data-i18n="alsoAccepted">Also accepted</label>
+              <div class="express-pay-row">
+                <button class="express-btn paypal-btn" id="btnPayPal" aria-label="Pay with PayPal">
+                  <svg viewBox="0 0 72 18" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:58px;height:16px">
+                    <path d="M8.6 1.5H3.9L1 16.5h3.1l.7-4.6h2.6c3.1 0 5.1-1.6 5.7-4.5.5-2.7-.8-5.9-4.5-5.9zm.4 5.5c-.3 1.7-1.5 2.5-3.1 2.5H4.7l.9-5h1.2c1.7 0 2.5.9 2.2 2.5zm10.6-2.5c-2.9 0-5 2-5 5 0 2 1.3 3.3 3.4 3.3 1 0 1.9-.3 2.6-.8l-.3 1.7h2.8l1.9-9H22.5l-.7.8c-.6-.6-1.3-.8-1.9-.8l-.3-.2zm-.4 2.7c1.3 0 2.1.9 1.9 2.3-.2 1.3-1.2 2.2-2.5 2.2-1.2 0-1.8-.8-1.6-2.1.2-1.3 1-2.4 2.2-2.4zm13.1-2.7h-3.4l-2.5 6.1-.5-6.1H23.3l1.3 8.5-1.6 3H26l6.3-11.5zm10.2-3H37.2l-2.8 15h3.1l.7-4.6h2.6c3.1 0 5.1-1.6 5.7-4.5.5-2.7-.8-5.9-4.5-5.9zm.4 5.5c-.3 1.7-1.5 2.5-3.1 2.5h-1.2l.9-5h1.2c1.7 0 2.5.9 2.2 2.5zm10.6-2.5c-2.9 0-5 2-5 5 0 2 1.3 3.3 3.4 3.3 1 0 1.9-.3 2.6-.8l-.3 1.7h2.8l1.9-9H55l-.7.8c-.6-.6-1.3-.8-1.9-.8l-.3-.2zm-.4 2.7c1.3 0 2.1.9 1.9 2.3-.2 1.3-1.2 2.2-2.5 2.2-1.2 0-1.8-.8-1.6-2.1.2-1.3 1-2.4 2.2-2.4zm8.3-2.7l-1.3 6.1-1-6.1h-3.2l2.3 8.8-.2.4c-.3.7-.6.9-1.3.9H59v2.4l1.4.1c1.7 0 2.5-.6 3.2-2.3l3.7-10.3h-3z" fill="#003087"/>
+                  </svg>
+                  <span data-i18n="payWithPaypal">Pay with PayPal</span>
+                </button>
+                <button class="express-btn counter-btn" id="btnPayCounter" aria-label="Pay at the counter">
+                  💵 <span data-i18n="payAtCounterBtn">Pay at the Counter</span>
+                </button>
+              </div>
+              <div id="paypal-button-container" style="display:none; margin-top:8px;"></div>
+              <div class="pay-error" id="paypalError"></div>
+            </div>
+
+            <div class="pay-divider" id="cardPayDivider"><span data-i18n="orWithCard2">or pay with card</span></div>
+
+            <!-- Stripe Card Element -->
+            <div class="form-row" id="cardDetailsRow">
+              <label data-i18n="cardDetails">Card details</label>
+              <div id="stripe-card-element"></div>
+              <div class="pay-error" id="cardError"></div>
+            </div>
+
+            <div class="pay-processing" id="payProcessing">
+              <div class="pay-spinner"></div>
+              <span data-i18n="processingPayment">Processing payment…</span>
+            </div>
+
+            <div class="pay-secure-note" id="secureNote">
+              <svg width="12" height="14" viewBox="0 0 12 14" fill="none"><path d="M6 0L1 2v4c0 3.3 2.1 6.4 5 7.2C8.9 12.4 11 9.3 11 6V2L6 0z" fill="#3a7a30"/></svg>
+              <span id="secureNoteText" data-i18n-html="secureNoteHtml">Secured by <span>Stripe</span>. Card data is encrypted and never touches our servers.
+              Accepts Visa, Mastercard, Amex, Apple Pay &amp; Google Pay — or pay at the counter when your order arrives.</span>
+            </div>
+          </div>
+
+          <div class="checkout-footer">
+            <button class="btn-back" id="btnStep1Back" data-i18n="backBtn1">← Back</button>
+            <button class="btn-next" id="btnStep1Next" data-i18n="reviewOrderBtn">Review order →</button>
+          </div>
+        </div>
+
+        <!-- ── STEP 2: Review ── -->
+        <div class="checkout-step" id="step2">
+          <div class="review-scroll">
+            <div class="review-section">
+              <div class="review-label" data-i18n="orderItemsLabel">Order items</div>
+              <div class="review-items" id="reviewItems"></div>
+            </div>
+            <div class="review-section">
+              <div class="review-label" data-i18n="totalsLabel">Totals</div>
+              <div class="review-totals" id="reviewTotals"></div>
+            </div>
+            <div class="review-section" id="reviewPerPersonSection" style="display:none">
+              <div class="review-label" data-i18n="perPersonLabel">Per Person</div>
+              <div class="review-info" id="reviewPerPerson"></div>
+            </div>
+            <div class="review-section">
+              <div class="review-label" data-i18n="customerLabel">Customer</div>
+              <div class="review-info" id="reviewCustomer"></div>
+            </div>
+            <div class="review-section">
+              <div class="review-label" data-i18n="paymentLabel">Payment</div>
+              <div id="reviewPayment"></div>
+            </div>
+          </div>
+          <div class="checkout-footer">
+            <button class="btn-back" id="btnStep2Back" data-i18n="backBtn2">← Back</button>
+            <button class="btn-next" id="btnStep2Next" data-i18n="confirmAndPay">Confirm &amp; pay</button>
+          </div>
+        </div>
+
+        <!-- ── STEP 3: Confirmation ── -->
+        <div class="checkout-step" id="step3">
+          <div class="confirm-screen">
+            <div class="confirm-icon">
+              <svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="18" cy="18" r="17" stroke="#3a7a30" stroke-width="1.5"/>
+                <path d="M11 18l5 5 9-9" stroke="#3a7a30" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div class="confirm-title" data-i18n="orderPlaced">Order placed!</div>
+            <div class="confirm-sub" id="confirmSub">Thank you — your order has been received<br>and is being prepared.</div>
+            <div class="confirm-order-num"><span data-i18n="orderLabel">Order</span> <span id="confirmOrderNum">#0000</span></div>
+            <div class="confirm-eta"><span class="confirm-eta-dot"></span><span data-i18n="estWait">Estimated wait:</span> <strong id="confirmEta">15–20 min</strong></div>
+            <div class="confirm-timestamps" id="confirmTimestamps"></div>
+            <button class="checkout-btn" id="confirmTrackBtn" data-i18n="trackOrder" style="max-width:260px;margin-bottom:0.75rem;">Track order</button>
+            <button class="new-order-btn" id="newOrderBtn" data-i18n="startNewOrder">Start a new order</button>
+          </div>
+        </div>
+
+      </div><!-- /steps-wrap -->
+    </div><!-- /sheet -->
+  </div><!-- /modal -->
+
+  <script>
+    /* ══════════════════════════════════════════
+       MENU DATA
+    ══════════════════════════════════════════ */
+    /* ══════════════════════════════════════════
+       TODAY'S SPECIALS
+       Edit this list daily — item ids currently
+       featured as a special. Shown with a badge
+       and a dedicated "Specials" tab.
+    ══════════════════════════════════════════ */
+    const TODAYS_SPECIALS = [2, 6];
+
+    // Sugar level applies to drinks; spice level applies to dishes already
+    // tagged 'hot'. Both are optional per-item customizations chosen when
+    // a guest adds the dish, alongside an editable ingredient list derived
+    // from the dish description.
+    const SUGAR_LEVELS = ['100%', '70%', '50%', '30%', '0%'];
+    const SPICE_LEVELS = ['none', 'mild', 'medium', 'hot'];
+
+    const MENU_ITEMS = [
+      { id:9, cat:'desserts',
+        name:{en:'Mexican Ice Cream', es:'Helado Mexicano'},
+        desc:{en:'Cinnamon and cajeta swirl, toasted pecans, chili-spiced chocolate shell', es:'Remolino de canela y cajeta, nueces tostadas, cobertura de chocolate con chile'},
+        price:8.50,  tags:[{key:'signature',cls:''},{key:'new',cls:'new'},{key:'cal400',cls:''}],    videoSrc:'../media/Mexican%20IceCream.mp4',     thumb:'../thumbs/Mexican%20Ice%20Cream.jpg' },
+      { id:10, cat:'food',
+        name:{en:'Rasta Pasta with Chicken', es:'Pasta Rasta con Pollo'},
+        desc:{en:'Jerk-spiced chicken, penne, bell peppers, creamy coconut-tomato sauce', es:'Pollo especiado estilo jerk, penne, pimientos, salsa cremosa de coco y tomate'},
+        price:17.00, tags:[{key:'hot',cls:'hot'},{key:'new',cls:'new'},{key:'cal600',cls:''}],       videoSrc:'../media/Rasta%20Pasta.mp4',          thumb:'../thumbs/Rasta%20Pasta.jpg' },
+      { id:1, cat:'drinks',
+        name:{en:'Black Sesame Latte', es:'Latte de Sésamo Negro'},
+        desc:{en:'Single-origin espresso, black sesame paste, oat milk, light foam', es:'Espresso de origen único, pasta de sésamo negro, leche de avena, espuma ligera'},
+        price:6.50,  tags:[{key:'vegan',cls:'veg'},{key:'signature',cls:''},{key:'cal200',cls:''}], videoSrc:'../media/black-sesame-latte.mp4',     thumb:'../thumbs/0.jpg'    },
+      { id:2, cat:'drinks',
+        name:{en:'Yuzu Cold Brew', es:'Café Frío de Yuzu'},
+        desc:{en:'Slow-steeped 18h cold brew, yuzu syrup, sparkling water, ice', es:'Café frío infusionado 18h, jarabe de yuzu, agua con gas, hielo'},
+        price:7.00,  tags:[{key:'iced',cls:''},{key:'new',cls:'new'},{key:'cal300',cls:''}],          videoSrc:'../media/yuzu-cold-brew.mp4',         thumb:'../thumbs/2.jpg'    },
+      { id:3, cat:'brunch',
+        name:{en:'Smoked Salmon Bagel', es:'Bagel de Salmón Ahumado'},
+        desc:{en:'Everything bagel, cream cheese, smoked salmon, capers, red onion, dill', es:"Bagel 'everything', queso crema, salmón ahumado, alcaparras, cebolla morada, eneldo"},
+        price:14.00, tags:[{key:'signature',cls:''},{key:'cal200',cls:''}],                            videoSrc:'../media/smoked-salmon-bagel.mp4',    thumb:'../thumbs/1.jpg'    },
+      { id:4, cat:'brunch',
+        name:{en:'Shakshuka Verde', es:'Shakshuka Verde'},
+        desc:{en:'Spiced tomatillo sauce, poached eggs, cotija, cilantro, warm pita', es:'Salsa especiada de tomatillo, huevos escalfados, queso cotija, cilantro, pan pita caliente'},
+        price:15.50, tags:[{key:'hot',cls:'hot'},{key:'veg',cls:'veg'},{key:'cal400',cls:''}],       videoSrc:'../media/shakshuka-verde.mp4',        thumb:'../thumbs/4.jpg'    },
+      { id:5, cat:'desserts',
+        name:{en:'Burnt Basque Cheesecake', es:'Tarta de Queso Vasca'},
+        desc:{en:'Ultra-creamy cream cheese, caramelised top, vanilla bean, berry compote', es:'Queso crema ultra cremoso, superficie caramelizada, vainilla natural, compota de bayas'},
+        price:9.00,  tags:[{key:'signature',cls:''},{key:'cal100',cls:''}],                            videoSrc:'../media/burnt-basque-cheesecake.mp4',thumb:'../thumbs/3.jpg'    },
+      { id:6, cat:'desserts',
+        name:{en:'Matcha Hojicha Split', es:'Matcha y Hojicha'},
+        desc:{en:'Layered ceremonial matcha and roasted hojicha, oat milk, honey foam', es:'Capas de matcha ceremonial y hojicha tostado, leche de avena, espuma de miel'},
+        price:7.50,  tags:[{key:'vegan',cls:'veg'},{key:'new',cls:'new'},{key:'cal500',cls:''}],     videoSrc:'../media/match-hojicha-split.mp4',    thumb:'../thumbs/5.jpg'    },
+      { id:7, cat:'food',
+        name:{en:'Miso Roasted Salmon', es:'Salmón Asado al Miso'},
+        desc:{en:'White miso glaze, forbidden rice, pickled daikon, sesame, scallion', es:'Glaseado de miso blanco, arroz prohibido, daikon encurtido, sésamo, cebolleta'},
+        price:18.00, tags:[{key:'hot',cls:'hot'},{key:'chefPick',cls:''},{key:'cal400',cls:''}],    videoSrc:'../media/miso-roasted-salmon.mp4',    thumb:'../thumbs/7.jpg'    },
+      { id:8, cat:'desserts',
+        name:{en:'Mochi Trio', es:'Trío de Mochi'},
+        desc:{en:'Strawberry, black sesame, and ube mochi with kinako dust, raspberry gel', es:'Mochi de fresa, sésamo negro y ube con polvo de kinako, gel de frambuesa'},
+        price:10.00, tags:[{key:'veg',cls:'veg'},{key:'new',cls:'new'},{key:'cal600',cls:''}],       videoSrc:'../media/mochi-trio.mp4',             thumb:'../thumbs/6.jpg'    },
+    ];
+
+    const TAG_LABELS = {
+      en: { vegan:'Vegan', signature:'Signature', cal500:'Calories 500', cal200:'Calories 200', iced:'Iced', new:'New', cal300:'Calories 300', hot:'Hot', veg:'Veg', cal400:'Calories 400', cal100:'Calories 100', chefPick:'Chef Pick', cal600:'Calories 600' },
+      es: { vegan:'Vegano', signature:'Especialidad', cal500:'500 calorías', cal200:'200 calorías', iced:'Frío', new:'Nuevo', cal300:'300 calorías', hot:'Caliente', veg:'Vegetariano', cal400:'400 calorías', cal100:'100 calorías', chefPick:'Recomendado del chef', cal600:'600 calorías' },
+    };
+
+    /* ══════════════════════════════════════════
+       I18N — UI translations
+    ══════════════════════════════════════════ */
+    const I18N = {
+      en: {
+        tagline: 'artesan café & desserts',
+        kitchenLink: '🍳 Kitchen',
+        tabAll:'All', tabDrinks:'Drinks', tabFood:'Food', tabDesserts:'Desserts', tabBrunch:'Brunch',
+        sectionAll:'All items', sectionDrinks:'Drinks', sectionFood:'Food', sectionDesserts:'Desserts', sectionBrunch:'Brunch',
+        hoverToPreview:'hover to preview',
+        footerText: 'Hover over any dish to watch a <strong>live video preview</strong>.<br>Click the image to view full screen · Tap <strong>+</strong> to add to your order.<br><br>Please inform staff of any allergies. All prices include tax.',
+        callForService:'Call for service',
+        needSomething:'Need something?',
+        serviceHint:'Let us know your table and what you need — a staff member will head your way shortly.',
+        tableNumber:'Table number', selectTable:'Select table…',
+        table1:'Table 1', table2:'Table 2', table3:'Table 3', table4:'Table 4', table5:'Table 5',
+        table6:'Table 6', table7:'Table 7', table8:'Table 8', table9:'Table 9', table10:'Table 10',
+        reasonAssist:'Need assistance', reasonWater:'Water refill', reasonReady:'Ready to order', reasonCheck:'Request the check',
+        callStaff:'Call staff',
+        onOurWay:"We're on our way!",
+        staffNotified: (reason, table) => `A staff member has been notified — ${reason.toLowerCase()} at ${table}.`,
+        itemsInOrder:'items in order', viewOrder:'View order',
+        yourOrder:'Your Order', orderEmpty:'Your order is empty.<br>Add a dish to get started.',
+        total:'Total', placeOrder:'Place order →',
+        eachSuffix:'each',
+        addToOrder:'+ Add to order',
+        addAria: name => `Add ${name} to order`,
+        checkoutTitles: ['Your Details','Payment','Review Order','Order Confirmed!'],
+        orderType:'Order type', dineIn:'🍽 Dine In', takeoutType:'🥡 Takeout', deliveryType:'🛵 Delivery',
+        firstName:'First name *', lastName:'Last name *', firstNamePh:'Jane', lastNamePh:'Smith',
+        phoneNumber:'Phone number *',
+        deliveryAddress:'Delivery address *', deliveryAddressPh:'123 Main St, City, State',
+        specialInstructions:'Special instructions', specialInstructionsPh:'Allergies, substitutions, or any notes…',
+        paymentNextBtn:'Payment →',
+        expressCheckout:'Express checkout',
+        prbUnavailable:'Apple Pay / Google Pay not available on this device or browser.',
+        orWithCard1:'or pay with card', orWithCard2:'or pay with card',
+        alsoAccepted:'Also accepted', payWithPaypal:'Pay with PayPal', payAtCounterBtn:'Pay at the Counter',
+        cardDetails:'Card details', processingPayment:'Processing payment…',
+        secureNoteHtml:'Secured by <span>Stripe</span>. Card data is encrypted and never touches our servers. Accepts Visa, Mastercard, Amex, Apple Pay &amp; Google Pay — or pay at the counter when your order arrives.',
+        backBtn1:'← Back', reviewOrderBtn:'Review order →',
+        orderItemsLabel:'Order items', totalsLabel:'Totals', customerLabel:'Customer', paymentLabel:'Payment',
+        subtotalRow:'Subtotal', taxRow:'Tax (8.75%)', totalRow:'Total',
+        backBtn2:'← Back', confirmAndPay:'Confirm & pay',
+        orderPlaced:'Order placed!',
+        confirmSubDefault:'Thank you — your order has been received<br>and is being prepared.',
+        confirmSubCounter:"Thank you — your order has been received and is being prepared.<br>Please pay at the counter when it's ready.",
+        orderLabel:'Order', estWait:'Estimated wait:', startNewOrder:'Start a new order',
+        typeLabels: { 'dine-in':'Dine In', 'takeout':'Takeout', 'delivery':'Delivery' },
+        payLabels: { 'stripe-card':'💳 Card via Stripe', 'apple_pay':'🍎 Apple Pay', 'google_pay':'Google Pay', 'paypal':'🅿 PayPal', 'pay-at-counter':'💵 Pay at the Counter', 'demo-card':'💳 Card (demo mode)' },
+        chargedNote:'····  charged', notYetChargedNote:'not yet charged',
+        alertName:'Please enter your name.', alertPhone:'Please enter a phone number.', alertAddress:'Please enter a delivery address.',
+        emptyStateTitle:'Nothing here yet.', emptyStateSub:'Check back soon!',
+        searchPlaceholder:'Search the menu…',
+        searchResultsFor: q => `Results for "${q}"`,
+        noSearchResultsTitle:'No dishes found.', noSearchResultsSub:'Try a different search term.',
+        trackOrder:'Track order', orderStatusTitle:'Order Status',
+        stagePlaced:'Placed', stagePrep:'Preparing', stageReady:'Ready', stageDone:'Completed',
+        statusPlacedMsg:'Your order has been received.', statusPrepMsg:'The kitchen is working on it.',
+        statusReadyMsg:'Your order is ready!', statusDoneMsg:'Order complete \u2014 thanks for visiting!',
+        dismissTracking:'Dismiss', orderNotFound:'This order is no longer being tracked.',
+        splitByPerson:'Split by person', addPersonPh:'Add a name…', addPersonBtn:'+ Add',
+        guestPrefix:'Guest', perPersonLabel:'Per Person', unassignedLabel:'Unassigned',
+        removePersonAria: name => `Remove ${name}`,
+        aiAssistantTitle:'Menu Assistant', aiAssistantSubtitle:'Ask about dishes, diets, or prices',
+        aiInputPlaceholder:'Ask about the menu…',
+        aiGreeting:'Hi! I can help you find something to order. Ask me things like "what\u2019s vegan?", "recommend a dessert", or "what\u2019s cheap?"',
+        aiChip1:'What\u2019s vegan?', aiChip2:'Recommend something', aiChip3:'Cheapest options', aiChip4:'What\u2019s new?',
+        tablesAvailableNote: (avail, total) => `${avail} of ${total} tables available`,
+        tablesFullNote: wait => `All tables are currently full \u2014 estimated wait ~${wait} min`,
+        tablesFullNoteNoWait: 'All tables are currently full \u2014 please check with staff for wait time.',
+        placedAtLabel:'Placed at', readyByLabel:'Expected ready by',
+        tabSpecials:'⭐ Specials', sectionSpecials:'Today\u2019s Specials',
+        specialTag:'Today\u2019s Special',
+        customizeTitle: name => `Customize ${name}`,
+        sugarLevelLabel:'Sugar Level', spiceLevelLabel:'Spice Level', ingredientsLabel:'Ingredients',
+        spiceNone:'No Spice', spiceMild:'Mild', spiceMedium:'Medium', spiceHot:'Hot',
+        removeIngredientHint:'Uncheck anything you\u2019d like left out',
+        addToOrderPriced: price => `Add to order — ${price}`,
+        sugarSummary: sugar => `Sugar: ${sugar}`,
+        spiceSummary: spice => `Spice: ${spice}`,
+        noSummary: names => `No ${names}`,
+        voiceListening:'Listening…', voiceNoSpeech:'Didn\u2019t catch that — try again?',
+        voicePermissionDenied:'Microphone access is blocked. Check your browser\u2019s site settings to allow it.',
+        voiceError:'Voice input hit a snag — please type instead.',
+        voiceMicAria:'Speak your order',
+      },
+      es: {
+        tagline: 'artesan café & postres',
+        kitchenLink: '🍳 Cocina',
+        tabAll:'Todos', tabDrinks:'Bebidas', tabFood:'Comida', tabDesserts:'Postres', tabBrunch:'Brunch',
+        sectionAll:'Todos los artículos', sectionDrinks:'Bebidas', sectionFood:'Comida', sectionDesserts:'Postres', sectionBrunch:'Brunch',
+        hoverToPreview:'pasa el cursor para ver',
+        footerText: 'Pasa el cursor sobre cualquier plato para ver una <strong>vista previa en video</strong>.<br>Haz clic en la imagen para verla en pantalla completa · Toca <strong>+</strong> para añadir a tu pedido.<br><br>Por favor informa al personal sobre cualquier alergia. Todos los precios incluyen impuestos.',
+        callForService:'Llamar al personal',
+        needSomething:'¿Necesitas algo?',
+        serviceHint:'Cuéntanos tu mesa y lo que necesitas — un miembro del personal se acercará en breve.',
+        tableNumber:'Número de mesa', selectTable:'Selecciona una mesa…',
+        table1:'Mesa 1', table2:'Mesa 2', table3:'Mesa 3', table4:'Mesa 4', table5:'Mesa 5',
+        table6:'Mesa 6', table7:'Mesa 7', table8:'Mesa 8', table9:'Mesa 9', table10:'Mesa 10',
+        reasonAssist:'Necesito ayuda', reasonWater:'Rellenar agua', reasonReady:'Listo para ordenar', reasonCheck:'Pedir la cuenta',
+        callStaff:'Llamar al personal',
+        onOurWay:'¡Ya vamos!',
+        staffNotified: (reason, table) => `Se ha notificado al personal — ${reason.toLowerCase()} en ${table}.`,
+        itemsInOrder:'artículos en el pedido', viewOrder:'Ver pedido',
+        yourOrder:'Tu Pedido', orderEmpty:'Tu pedido está vacío.<br>Añade un plato para empezar.',
+        total:'Total', placeOrder:'Realizar pedido →',
+        eachSuffix:'c/u',
+        addToOrder:'+ Añadir al pedido',
+        addAria: name => `Añadir ${name} al pedido`,
+        checkoutTitles: ['Tus Datos','Pago','Revisar Pedido','¡Pedido Confirmado!'],
+        orderType:'Tipo de pedido', dineIn:'🍽 Comer aquí', takeoutType:'🥡 Para llevar', deliveryType:'🛵 Entrega',
+        firstName:'Nombre *', lastName:'Apellido *', firstNamePh:'Juana', lastNamePh:'Pérez',
+        phoneNumber:'Número de teléfono *',
+        deliveryAddress:'Dirección de entrega *', deliveryAddressPh:'Calle Principal 123, Ciudad',
+        specialInstructions:'Instrucciones especiales', specialInstructionsPh:'Alergias, sustituciones o cualquier nota…',
+        paymentNextBtn:'Pago →',
+        expressCheckout:'Pago exprés',
+        prbUnavailable:'Apple Pay / Google Pay no está disponible en este dispositivo o navegador.',
+        orWithCard1:'o paga con tarjeta', orWithCard2:'o paga con tarjeta',
+        alsoAccepted:'También aceptamos', payWithPaypal:'Pagar con PayPal', payAtCounterBtn:'Pagar en el mostrador',
+        cardDetails:'Datos de la tarjeta', processingPayment:'Procesando el pago…',
+        secureNoteHtml:'Protegido por <span>Stripe</span>. Los datos de la tarjeta están cifrados y nunca llegan a nuestros servidores. Aceptamos Visa, Mastercard, Amex, Apple Pay y Google Pay — o paga en el mostrador cuando llegue tu pedido.',
+        backBtn1:'← Atrás', reviewOrderBtn:'Revisar pedido →',
+        orderItemsLabel:'Artículos del pedido', totalsLabel:'Totales', customerLabel:'Cliente', paymentLabel:'Pago',
+        subtotalRow:'Subtotal', taxRow:'Impuesto (8.75%)', totalRow:'Total',
+        backBtn2:'← Atrás', confirmAndPay:'Confirmar y pagar',
+        orderPlaced:'¡Pedido realizado!',
+        confirmSubDefault:'Gracias — tu pedido ha sido recibido<br>y está siendo preparado.',
+        confirmSubCounter:'Gracias — tu pedido ha sido recibido y está siendo preparado.<br>Por favor paga en el mostrador cuando esté listo.',
+        orderLabel:'Pedido', estWait:'Tiempo estimado:', startNewOrder:'Comenzar un nuevo pedido',
+        typeLabels: { 'dine-in':'Comer aquí', 'takeout':'Para llevar', 'delivery':'Entrega' },
+        payLabels: { 'stripe-card':'💳 Tarjeta vía Stripe', 'apple_pay':'🍎 Apple Pay', 'google_pay':'Google Pay', 'paypal':'🅿 PayPal', 'pay-at-counter':'💵 Pagar en el mostrador', 'demo-card':'💳 Tarjeta (modo demo)' },
+        chargedNote:'····  cobrado', notYetChargedNote:'aún no cobrado',
+        alertName:'Por favor ingresa tu nombre.', alertPhone:'Por favor ingresa un número de teléfono.', alertAddress:'Por favor ingresa una dirección de entrega.',
+        emptyStateTitle:'Aún no hay nada aquí.', emptyStateSub:'¡Vuelve pronto!',
+        searchPlaceholder:'Buscar en el menú…',
+        searchResultsFor: q => `Resultados para "${q}"`,
+        noSearchResultsTitle:'No se encontraron platos.', noSearchResultsSub:'Prueba con otro término de búsqueda.',
+        trackOrder:'Seguir pedido', orderStatusTitle:'Estado del Pedido',
+        stagePlaced:'Recibido', stagePrep:'Preparando', stageReady:'Listo', stageDone:'Completado',
+        statusPlacedMsg:'Tu pedido ha sido recibido.', statusPrepMsg:'La cocina está trabajando en ello.',
+        statusReadyMsg:'¡Tu pedido está listo!', statusDoneMsg:'Pedido completado \u2014 ¡gracias por tu visita!',
+        dismissTracking:'Descartar', orderNotFound:'Este pedido ya no se está siguiendo.',
+        splitByPerson:'Dividir por persona', addPersonPh:'Añadir un nombre…', addPersonBtn:'+ Añadir',
+        guestPrefix:'Invitado', perPersonLabel:'Por Persona', unassignedLabel:'Sin asignar',
+        removePersonAria: name => `Eliminar a ${name}`,
+        aiAssistantTitle:'Asistente del Menú', aiAssistantSubtitle:'Pregunta sobre platos, dietas o precios',
+        aiInputPlaceholder:'Pregunta sobre el menú…',
+        aiGreeting:'¡Hola! Puedo ayudarte a encontrar algo para pedir. Pregúntame cosas como "¿qué es vegano?", "recomienda un postre" o "¿qué es económico?"',
+        aiChip1:'¿Qué es vegano?', aiChip2:'Recomiéndame algo', aiChip3:'Opciones económicas', aiChip4:'¿Qué hay nuevo?',
+        tablesAvailableNote: (avail, total) => `${avail} de ${total} mesas disponibles`,
+        tablesFullNote: wait => `Todas las mesas están ocupadas \u2014 espera estimada ~${wait} min`,
+        tablesFullNoteNoWait: 'Todas las mesas están ocupadas \u2014 consulta con el personal el tiempo de espera.',
+        placedAtLabel:'Pedido a las', readyByLabel:'Listo aproximadamente a las',
+        tabSpecials:'⭐ Especiales', sectionSpecials:'Especiales de Hoy',
+        specialTag:'Especial de Hoy',
+        customizeTitle: name => `Personalizar ${name}`,
+        sugarLevelLabel:'Nivel de Azúcar', spiceLevelLabel:'Nivel de Picante', ingredientsLabel:'Ingredientes',
+        spiceNone:'Sin Picante', spiceMild:'Suave', spiceMedium:'Medio', spiceHot:'Picante',
+        removeIngredientHint:'Desmarca lo que quieras excluir',
+        addToOrderPriced: price => `Añadir al pedido — ${price}`,
+        sugarSummary: sugar => `Azúcar: ${sugar}`,
+        spiceSummary: spice => `Picante: ${spice}`,
+        noSummary: names => `Sin ${names}`,
+        voiceListening:'Escuchando…', voiceNoSpeech:'No entendí eso — ¿inténtalo de nuevo?',
+        voicePermissionDenied:'El acceso al micrófono está bloqueado. Revisa la configuración del sitio en tu navegador.',
+        voiceError:'Hubo un problema con la voz — por favor escribe en su lugar.',
+        voiceMicAria:'Habla tu pedido',
+      },
+    };
+
+    /* ══════════════════════════════════════════
+       AI MENU ASSISTANT — knowledge base
+       ─────────────────────────────────────────
+       This is a rule-based assistant grounded entirely in the
+       real MENU_ITEMS data below — it never invents dishes,
+       prices, or dietary/allergen claims. If a real LLM-backed
+       assistant is wanted instead, set AI_ASSISTANT_ENDPOINT to
+       a backend you control (see getAssistantReply below); this
+       local assistant is always the fallback so the feature
+       works out of the box with no backend required.
+    ══════════════════════════════════════════ */
+    const ASSISTANT_I18N = {
+      en: {
+        greeting: 'Hi! I can help you find something to order. Ask me things like "what\u2019s vegan?", "recommend a dessert", or "what\u2019s cheap?"',
+        categoryIntro: cat => `Here's what we have in ${cat}:`,
+        dietIntro: diet => `Here are our ${diet} options:`,
+        dietNone: diet => `I don't see anything tagged ${diet} on the menu right now \u2014 our staff can confirm what might work for you.`,
+        recommend: 'Here are a few guest favorites:',
+        cheapest: 'Here are our most budget-friendly options:',
+        underPrice: amount => `Here's everything under $${amount}:`,
+        light: 'Here are our lighter options by calories:',
+        newItems: 'Here\u2019s what\u2019s new on the menu:',
+        dishFound: name => `Here's what I have on ${name}:`,
+        dishNotFound: 'I couldn\u2019t find that on the menu \u2014 try browsing by category, or ask me to recommend something.',
+        allergenDisclaimer: 'I don\u2019t have detailed allergen information listed \u2014 please check with our staff directly for anything allergy-related.',
+        thanks: 'You\u2019re welcome! Let me know if you\u2019d like more recommendations.',
+        fallback: 'I can help you find vegan or vegetarian options, budget-friendly picks, what\u2019s new, or recommend something popular. Try asking "what\u2019s vegan?" or "recommend a drink."',
+        priceLabel: 'Price', caloriesWord: 'calories',
+      },
+      es: {
+        greeting: '¡Hola! Puedo ayudarte a encontrar algo para pedir. Pregúntame cosas como "¿qué es vegano?", "recomienda un postre" o "¿qué es económico?"',
+        categoryIntro: cat => `Esto es lo que tenemos en ${cat}:`,
+        dietIntro: diet => `Estas son nuestras opciones ${diet}:`,
+        dietNone: diet => `No veo nada marcado como ${diet} en el menú por ahora \u2014 nuestro personal puede confirmarte qué opciones podrían funcionar.`,
+        recommend: 'Aquí tienes algunos favoritos de nuestros clientes:',
+        cheapest: 'Estas son nuestras opciones más económicas:',
+        underPrice: amount => `Esto es todo por menos de $${amount}:`,
+        light: 'Estas son nuestras opciones más ligeras por calorías:',
+        newItems: 'Esto es lo nuevo en el menú:',
+        dishFound: name => `Esto es lo que tengo sobre ${name}:`,
+        dishNotFound: 'No encontré eso en el menú \u2014 prueba a buscar por categoría, o pídeme una recomendación.',
+        allergenDisclaimer: 'No tengo información detallada sobre alérgenos \u2014 por favor consulta directamente con nuestro personal para cualquier tema de alergias.',
+        thanks: '¡De nada! Avísame si quieres más recomendaciones.',
+        fallback: 'Puedo ayudarte a encontrar opciones veganas o vegetarianas, opciones económicas, lo nuevo, o recomendarte algo popular. Prueba preguntando "¿qué es vegano?" o "recomiéndame una bebida."',
+        priceLabel: 'Precio', caloriesWord: 'calorías',
+      },
+    };
+
+    // Keyword sets per language. Kept intentionally simple (substring match)
+    // rather than a full NLP pipeline — this is meant to cover the common,
+    // predictable questions a café guest actually asks.
+    const ASSISTANT_KEYWORDS = {
+      en: {
+        vegan: ['vegan'],
+        vegetarian: ['vegetarian', 'veggie'],
+        allergen: ['gluten', 'allerg', 'nut free', 'dairy free', 'lactose', 'celiac', 'coeliac'],
+        recommend: ['recommend', 'suggest', 'popular', 'favorite', 'favourite', 'best seller', 'what should i get', 'good option'],
+        cheap: ['cheap', 'budget', 'inexpensive', 'affordable', 'least expensive', 'cheapest'],
+        light: ['light', 'low calorie', 'low-calorie', 'healthy', 'fewer calories'],
+        newItems: ['new', 'newest', "what's new"],
+        thanks: ['thank', 'thanks', 'thx'],
+        greeting: ['hello', 'hi ', 'hey', 'hi!', 'hi,'],
+        categories: { drinks: ['drink', 'beverage'], food: ['food', 'savory', 'savoury', 'meal'], desserts: ['dessert', 'sweet'], brunch: ['brunch', 'breakfast'] },
+      },
+      es: {
+        vegan: ['vegano', 'vegana'],
+        vegetarian: ['vegetarian'],
+        allergen: ['gluten', 'alerg', 'sin nueces', 'sin lactosa', 'lactosa', 'celiac', 'celíac'],
+        recommend: ['recomien', 'sugiere', 'popular', 'favorito', 'favorita', 'mejor', 'qué me recomiendas', 'que me recomiendas'],
+        cheap: ['barato', 'barata', 'económico', 'economico', 'asequible', 'más barato', 'mas barato'],
+        light: ['ligero', 'ligera', 'bajo en calorías', 'bajo en calorias', 'saludable'],
+        newItems: ['nuevo', 'nueva', 'novedad', 'qué hay nuevo', 'que hay nuevo'],
+        thanks: ['gracias'],
+        greeting: ['hola', 'buenas', 'buenos días', 'buenos dias'],
+        categories: { drinks: ['bebida'], food: ['comida', 'salado'], desserts: ['postre', 'dulce'], brunch: ['brunch', 'desayuno'] },
+      },
+    };
+
+    function stripAccents(s) {
+      return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    }
+
+    function matchesAny(haystack, needles) {
+      return needles.some(n => haystack.includes(stripAccents(n.toLowerCase())));
+    }
+
+    function calorieValue(item) {
+      const tag = item.tags.find(t => /^cal\d+$/.test(t.key));
+      return tag ? parseInt(tag.key.replace('cal', ''), 10) : null;
+    }
+
+    function dishCardData(item) {
+      return { id: item.id, name: itemName(item), price: item.price, thumb: item.thumb };
+    }
+
+    // The local, rule-based assistant. Always available, works fully offline,
+    // and only ever talks about dishes that actually exist in MENU_ITEMS.
+    function analyzeQueryLocally(rawText) {
+      const A = ASSISTANT_I18N[currentLang] || ASSISTANT_I18N.en;
+      const K = ASSISTANT_KEYWORDS[currentLang] || ASSISTANT_KEYWORDS.en;
+      const text = stripAccents(rawText.toLowerCase().trim());
+
+      if (!text) return { text: A.fallback, dishes: [] };
+
+      // Allergen/gluten questions: never guess — we don't have that data modeled.
+      if (matchesAny(text, K.allergen)) {
+        return { text: A.allergenDisclaimer, dishes: [], disclaimer: true };
+      }
+
+      if (matchesAny(text, K.thanks)) return { text: A.thanks, dishes: [] };
+      if (matchesAny(text, K.greeting) && text.length < 20) return { text: A.greeting, dishes: [] };
+
+      // Try to match a specific dish by name first (works in either language)
+      const directMatch = MENU_ITEMS.find(i => text.includes(stripAccents(itemName(i).toLowerCase())) || text.includes(stripAccents(i.name.en.toLowerCase())));
+      if (directMatch) {
+        return { text: A.dishFound(itemName(directMatch)), dishes: [dishCardData(directMatch)] };
+      }
+
+      if (matchesAny(text, K.vegan)) {
+        const matches = MENU_ITEMS.filter(i => i.tags.some(t => t.key === 'vegan'));
+        return matches.length
+          ? { text: A.dietIntro(currentLang === 'es' ? 'veganas' : 'vegan'), dishes: matches.map(dishCardData) }
+          : { text: A.dietNone(currentLang === 'es' ? 'vegano' : 'vegan'), dishes: [] };
+      }
+      if (matchesAny(text, K.vegetarian)) {
+        const matches = MENU_ITEMS.filter(i => i.tags.some(t => t.key === 'veg' || t.key === 'vegan'));
+        return matches.length
+          ? { text: A.dietIntro(currentLang === 'es' ? 'vegetarianas' : 'vegetarian'), dishes: matches.map(dishCardData) }
+          : { text: A.dietNone(currentLang === 'es' ? 'vegetariano' : 'vegetarian'), dishes: [] };
+      }
+
+      const underMatch = text.match(/(?:under|less than|menos de)\D{0,3}(\d+(?:\.\d+)?)/);
+      if (underMatch) {
+        const cap = parseFloat(underMatch[1]);
+        const matches = MENU_ITEMS.filter(i => i.price < cap).sort((a, b) => a.price - b.price);
+        return { text: A.underPrice(cap), dishes: matches.slice(0, 5).map(dishCardData) };
+      }
+      if (matchesAny(text, K.cheap)) {
+        const matches = [...MENU_ITEMS].sort((a, b) => a.price - b.price).slice(0, 3);
+        return { text: A.cheapest, dishes: matches.map(dishCardData) };
+      }
+
+      if (matchesAny(text, K.light)) {
+        const matches = [...MENU_ITEMS].filter(i => calorieValue(i) !== null).sort((a, b) => calorieValue(a) - calorieValue(b)).slice(0, 3);
+        return { text: A.light, dishes: matches.map(dishCardData) };
+      }
+
+      if (matchesAny(text, K.newItems)) {
+        const matches = MENU_ITEMS.filter(i => i.tags.some(t => t.key === 'new'));
+        return { text: A.newItems, dishes: matches.map(dishCardData) };
+      }
+
+      if (matchesAny(text, K.recommend)) {
+        const matches = MENU_ITEMS.filter(i => i.tags.some(t => ['signature', 'chefPick', 'new'].includes(t.key))).slice(0, 4);
+        return { text: A.recommend, dishes: matches.map(dishCardData) };
+      }
+
+      for (const [cat, words] of Object.entries(K.categories)) {
+        if (matchesAny(text, words)) {
+          const matches = MENU_ITEMS.filter(i => i.cat === cat);
+          const catLabel = t({ drinks: 'tabDrinks', food: 'tabFood', desserts: 'tabDesserts', brunch: 'tabBrunch' }[cat]);
+          return { text: A.categoryIntro(catLabel), dishes: matches.map(dishCardData) };
+        }
+      }
+
+      return { text: A.fallback, dishes: [] };
+    }
+
+    // Optional real-AI backend hook. Leave empty to always use the local
+    // assistant above — that keeps this feature fully self-contained and
+    // working with zero backend setup. Point this at your own server (same
+    // pattern as the Stripe SERVER constant elsewhere in this file) if you
+    // want true natural-language answers from an LLM instead. Never put an
+    // Anthropic/OpenAI API key directly in this client-side file — a
+    // browser page can't hold a secret; the backend is what should hold it.
+    const AI_ASSISTANT_ENDPOINT = '';
+
+    async function getAssistantReply(userText) {
+      if (AI_ASSISTANT_ENDPOINT) {
+        try {
+          const res = await fetch(AI_ASSISTANT_ENDPOINT, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              message: userText,
+              lang: currentLang,
+              menu: MENU_ITEMS.map(i => ({ id: i.id, name: itemName(i), price: i.price, cat: i.cat })),
+            }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data && typeof data.text === 'string') return { text: data.text, dishes: data.dishes || [] };
+          }
+        } catch (err) {
+          console.warn('[AI Assistant] backend unavailable, using local assistant instead:', err);
+        }
+      }
+      return analyzeQueryLocally(userText);
+    }
+
+    /* ══════════════════════════════════════════
+       STATE
+    ══════════════════════════════════════════ */
+    let currentLang  = localStorage.getItem('soreal_lang') === 'es' ? 'es' : 'en';
+    let cart         = {};   // id → { item, qty }
+    let activeFilter = 'all';
+    let searchQuery  = '';
+    let overlayItem  = null;
+    let orderType    = 'dine-in';
+    let currentStep  = 0;
+    let selectedProvider = 'stripe';
+    let expressMethod    = null;  // 'apple_pay' | 'google_pay' | 'paypal' | 'pay-at-counter'
+    let activeOrder  = null;      // { id, orderNum, placedAt } — tracked for the order-status widget
+    let aiConversation = [];      // [{ role: 'user'|'assistant', text, dishes? }] — chat history
+    let aiGreeted = false;        // whether the greeting message has been shown yet
+    let splitByPerson = false;    // on-demand, off by default
+    let people = [];              // ['Guest 1', 'Guest 2', ...] or custom names
+    let personAssignments = {};   // { itemId: { personName: qty } } — breakdown of who's having what
+    let customizeItem  = null;    // item currently being customized
+    let customizeState = null;    // { sugar, spice, removedIngredients } being edited
+
+    /* ══════════════════════════════════════════
+       DOM REFS
+    ══════════════════════════════════════════ */
+    const grid            = document.getElementById('menuGrid');
+    const tabs            = document.getElementById('tabs');
+    const sectionLabel    = document.getElementById('sectionLabel');
+    const cartBar         = document.getElementById('cartBar');
+    const cartCountEl     = document.getElementById('cartCount');
+    const cartTotalEl     = document.getElementById('cartTotal');
+    const overlay         = document.getElementById('videoOverlay');
+    const overlayVid      = document.getElementById('overlayVideo');
+    const overlayName     = document.getElementById('overlayName');
+    const overlayDesc     = document.getElementById('overlayDesc');
+    const overlayAdd      = document.getElementById('overlayAdd');
+    const customizeBackdrop = document.getElementById('customizeBackdrop');
+    const customizeSheet    = document.getElementById('customizeSheet');
+    const customizeTitleEl  = document.getElementById('customizeTitle');
+    const customizeClose    = document.getElementById('customizeClose');
+    const customizeBody     = document.getElementById('customizeBody');
+    const customizeAddBtn   = document.getElementById('customizeAddBtn');
+    const overlayClose    = document.getElementById('overlayClose');
+    const viewOrderBtn    = document.getElementById('viewOrderBtn');
+    const orderPanel      = document.getElementById('orderPanel');
+    const orderPanelClose = document.getElementById('orderPanelClose');
+    const orderBackdrop   = document.getElementById('orderBackdrop');
+    const orderList       = document.getElementById('orderList');
+    const splitToggle     = document.getElementById('splitToggle');
+    const peopleEditor    = document.getElementById('peopleEditor');
+    const peopleChips     = document.getElementById('peopleChips');
+    const newPersonInput  = document.getElementById('newPersonInput');
+    const addPersonBtn    = document.getElementById('addPersonBtn');
+    const orderGrandTotal = document.getElementById('orderGrandTotal');
+    const openCheckoutBtn = document.getElementById('openCheckoutBtn');
+    const checkoutModal   = document.getElementById('checkoutModal');
+    const checkoutBackdrop= document.getElementById('checkoutBackdrop');
+    const checkoutCloseBtn= document.getElementById('checkoutCloseBtn');
+    const checkoutTitle   = document.getElementById('checkoutTitle');
+    const langToggle      = document.getElementById('langToggle');
+    const langCode        = document.getElementById('langCode');
+    const aiAssistantFab  = document.getElementById('aiAssistantFab');
+    const aiPanelBackdrop = document.getElementById('aiPanelBackdrop');
+    const aiPanel         = document.getElementById('aiPanel');
+    const aiPanelClose    = document.getElementById('aiPanelClose');
+    const aiMessagesEl    = document.getElementById('aiMessages');
+    const aiQuickChips    = document.getElementById('aiQuickChips');
+    const aiInput         = document.getElementById('aiInput');
+    const aiSendBtn       = document.getElementById('aiSendBtn');
+    const aiMicBtn        = document.getElementById('aiMicBtn');
+    const aiVoiceBanner   = document.getElementById('aiVoiceBanner');
+    const aiVoiceBannerText = document.getElementById('aiVoiceBannerText');
+
+    /* ══════════════════════════════════════════
+       I18N HELPERS
+    ══════════════════════════════════════════ */
+    const t         = key => (I18N[currentLang][key] !== undefined ? I18N[currentLang][key] : I18N.en[key]);
+    const itemName  = item => item.name[currentLang] || item.name.en;
+    const itemDesc  = item => item.desc[currentLang] || item.desc.en;
+    const tagLabel  = tag  => (TAG_LABELS[currentLang] && TAG_LABELS[currentLang][tag.key]) || TAG_LABELS.en[tag.key];
+
+    // ── Customization helpers ──
+    const isDrink    = item => item.cat === 'drinks';
+    const isSpicy    = item => item.tags.some(tag => tag.key === 'hot');
+    const isSpecial  = item => TODAYS_SPECIALS.includes(item.id);
+    const getIngredients = item => itemDesc(item).split(',').map(s => s.trim()).filter(Boolean);
+    const defaultCustomization = item => ({
+      sugar: isDrink(item) ? '100%' : null,
+      spice: isSpicy(item) ? 'medium' : null,
+      removedIngredients: [],
+    });
+    const spiceLabel = key => ({ none: t('spiceNone'), mild: t('spiceMild'), medium: t('spiceMedium'), hot: t('spiceHot') }[key] || key);
+    function customizationSummary(customization) {
+      if (!customization) return '';
+      const parts = [];
+      if (customization.sugar) parts.push(t('sugarSummary')(customization.sugar));
+      if (customization.spice) parts.push(t('spiceSummary')(spiceLabel(customization.spice)));
+      if (customization.removedIngredients && customization.removedIngredients.length) {
+        parts.push(t('noSummary')(customization.removedIngredients.join(', ')));
+      }
+      return parts.join(' · ');
+    }
+
+    function applyLanguage() {
+      document.documentElement.lang = currentLang;
+      langCode.textContent = currentLang.toUpperCase();
+
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.dataset.i18n;
+        const val = t(key);
+        if (typeof val === 'string') el.textContent = val;
+      });
+      document.querySelectorAll('[data-i18n-html]').forEach(el => {
+        const key = el.dataset.i18nHtml;
+        const val = t(key);
+        if (typeof val === 'string') el.innerHTML = val;
+      });
+      document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+        const key = el.dataset.i18nPlaceholder;
+        const val = t(key);
+        if (typeof val === 'string') el.placeholder = val;
+      });
+
+      // Section label (depends on active filter)
+      const sectionKeys = { all:'sectionAll', drinks:'sectionDrinks', food:'sectionFood', desserts:'sectionDesserts', brunch:'sectionBrunch', specials:'sectionSpecials' };
+      sectionLabel.textContent = t(sectionKeys[activeFilter] || 'sectionAll');
+
+      // Checkout modal step title (only if modal is open / has been initialised)
+      if (checkoutTitle) checkoutTitle.textContent = t('checkoutTitles')[currentStep];
+
+      // Re-render everything that's built dynamically with text content
+      renderGrid(activeFilter);
+      updateCart();
+      if (typeof renderOrderList === 'function') renderOrderList();
+      if (document.getElementById('step2') && document.getElementById('step2').classList.contains('active')) buildReview();
+      if (typeof updateOrderStatusButton === 'function') updateOrderStatusButton();
+      if (typeof orderStatusPanel !== 'undefined' && orderStatusPanel.classList.contains('open')) renderOrderStatusPanel();
+      if (typeof renderPeopleChips === 'function' && splitByPerson) renderPeopleChips();
+      if (typeof renderAiQuickChips === 'function' && aiPanel && aiPanel.classList.contains('open')) renderAiQuickChips();
+      if (typeof aiMicBtn !== 'undefined' && aiMicBtn) aiMicBtn.setAttribute('aria-label', t('voiceMicAria'));
+    }
+
+    langToggle.addEventListener('click', () => {
+      currentLang = currentLang === 'en' ? 'es' : 'en';
+      localStorage.setItem('soreal_lang', currentLang);
+      applyLanguage();
+    });
+
+    /* ══════════════════════════════════════════
+       CART HELPERS
+    ══════════════════════════════════════════ */
+    const fmt           = n  => '$' + n.toFixed(2);
+    const formatClockTime = ts => new Date(ts).toLocaleTimeString(currentLang === 'es' ? 'es-ES' : 'en-US', { hour: 'numeric', minute: '2-digit' });
+    const cartEntries   = () => Object.values(cart);
+    const cartItemCount = () => cartEntries().reduce((s,e) => s + e.qty, 0);
+    const cartSubtotal  = () => cartEntries().reduce((s,e) => s + e.item.price * e.qty, 0);
+    const TAX_RATE      = 0.0875;
+    const cartTax       = () => cartSubtotal() * TAX_RATE;
+    const cartGrand     = () => cartSubtotal() + cartTax();
+
+    function updateCart() {
+      const count = cartItemCount();
+      cartCountEl.textContent = count;
+      cartTotalEl.textContent = fmt(cartSubtotal());
+      cartBar.classList.toggle('visible', count > 0);
+      document.getElementById('aiAssistantFab').classList.toggle('raised', count > 0);
+      renderOrderList();
+    }
+
+    function addToCart(item, customization) {
+      if (cart[item.id]) {
+        cart[item.id].qty++;
+        if (customization) cart[item.id].customization = customization;
+      } else {
+        cart[item.id] = { item, qty: 1, customization: customization || defaultCustomization(item) };
+      }
+      updateCart();
+    }
+
+    function decrementCart(id) {
+      if (!cart[id]) return;
+      cart[id].qty--;
+      if (cart[id].qty <= 0) {
+        delete cart[id];
+        delete personAssignments[id];
+      } else {
+        clampAssignmentsToQty(id);
+      }
+      updateCart();
+    }
+
+    /* ══════════════════════════════════════════
+       CUSTOMIZE SHEET (sugar / spice / ingredients)
+    ══════════════════════════════════════════ */
+    function renderCustomizeSheet() {
+      const item = customizeItem;
+      if (!item) return;
+      customizeTitleEl.textContent = t('customizeTitle')(itemName(item));
+
+      let html = '';
+
+      if (isDrink(item)) {
+        html += `
+          <div>
+            <div class="customize-section-label">${t('sugarLevelLabel')}</div>
+            <div class="customize-pill-row" data-group="sugar">
+              ${SUGAR_LEVELS.map(lvl => `<button class="customize-pill ${customizeState.sugar === lvl ? 'selected' : ''}" data-value="${lvl}">${lvl}</button>`).join('')}
+            </div>
+          </div>`;
+      }
+
+      if (isSpicy(item)) {
+        html += `
+          <div>
+            <div class="customize-section-label">${t('spiceLevelLabel')}</div>
+            <div class="customize-pill-row" data-group="spice">
+              ${SPICE_LEVELS.map(lvl => `<button class="customize-pill ${customizeState.spice === lvl ? 'selected' : ''}" data-value="${lvl}">${spiceLabel(lvl)}</button>`).join('')}
+            </div>
+          </div>`;
+      }
+
+      const ingredients = getIngredients(item);
+      html += `
+        <div>
+          <div class="customize-section-label">${t('ingredientsLabel')}</div>
+          <div class="customize-ingredient-hint">${t('removeIngredientHint')}</div>
+          <div style="margin-top:0.6rem">
+            ${ingredients.map((ing, idx) => `
+              <div class="customize-ingredient-row">
+                <input type="checkbox" id="ing-${idx}" data-ingredient="${ing.replace(/"/g, '&quot;')}" ${customizeState.removedIngredients.includes(ing) ? '' : 'checked'} />
+                <label for="ing-${idx}">${ing}</label>
+              </div>`).join('')}
+          </div>
+        </div>`;
+
+      customizeBody.innerHTML = html;
+      customizeAddBtn.textContent = t('addToOrderPriced')(fmt(item.price));
+    }
+
+    function openCustomizeSheet(item) {
+      customizeItem = item;
+      const existing = cart[item.id] && cart[item.id].customization;
+      customizeState = existing ? { ...existing, removedIngredients: [...existing.removedIngredients] } : defaultCustomization(item);
+      renderCustomizeSheet();
+      customizeSheet.classList.add('open');
+      customizeBackdrop.classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeCustomizeSheet() {
+      customizeSheet.classList.remove('open');
+      customizeBackdrop.classList.remove('open');
+      document.body.style.overflow = '';
+      customizeItem = null;
+      customizeState = null;
+    }
+
+    customizeClose.addEventListener('click', closeCustomizeSheet);
+    customizeBackdrop.addEventListener('click', closeCustomizeSheet);
+
+    customizeBody.addEventListener('click', e => {
+      const pill = e.target.closest('.customize-pill');
+      if (!pill) return;
+      const group = pill.closest('.customize-pill-row').dataset.group;
+      customizeState[group] = pill.dataset.value;
+      renderCustomizeSheet();
+    });
+
+    customizeBody.addEventListener('change', e => {
+      const checkbox = e.target.closest('input[type="checkbox"][data-ingredient]');
+      if (!checkbox) return;
+      const ing = checkbox.dataset.ingredient;
+      customizeState.removedIngredients = checkbox.checked
+        ? customizeState.removedIngredients.filter(i => i !== ing)
+        : [...customizeState.removedIngredients, ing];
+    });
+
+    customizeAddBtn.addEventListener('click', () => {
+      if (!customizeItem) return;
+      addToCart(customizeItem, customizeState);
+      closeCustomizeSheet();
+    });
+
+    /* ══════════════════════════════════════════
+       ORDER PANEL
+    ══════════════════════════════════════════ */
+    function renderOrderList() {
+      const entries = cartEntries();
+      orderGrandTotal.textContent = fmt(cartSubtotal());
+      if (!entries.length) {
+        orderList.innerHTML = `<div class="order-empty">${t('orderEmpty')}</div>`;
+        return;
+      }
+      orderList.innerHTML = entries.map(({ item, qty, customization }) => `
+        <div class="order-row-wrap">
+          <div class="order-row">
+            <div class="order-row-info">
+              <div class="order-row-name">${itemName(item)}</div>
+              <div class="order-row-price">${fmt(item.price)} ${t('eachSuffix')}</div>
+              ${customizationSummary(customization) ? `<div class="order-row-customization">${customizationSummary(customization)}</div>` : ''}
+            </div>
+            <div class="qty-control">
+              <button class="qty-btn remove-btn" data-action="dec" data-id="${item.id}">−</button>
+              <span class="qty-value">${qty}</span>
+              <button class="qty-btn" data-action="inc" data-id="${item.id}">+</button>
+            </div>
+            <div class="order-row-total">${fmt(item.price * qty)}</div>
+          </div>
+          ${splitByPerson && people.length ? buildAssignRowHtml(item.id) : ''}
+        </div>`).join('');
+    }
+
+    orderList.addEventListener('click', e => {
+      const assignBtn = e.target.closest('.assign-btn');
+      if (assignBtn) {
+        const id = Number(assignBtn.dataset.id);
+        const person = assignBtn.dataset.person;
+        adjustAssignment(id, person, assignBtn.dataset.action === 'assign-inc' ? 1 : -1);
+        return;
+      }
+      const btn = e.target.closest('.qty-btn');
+      if (!btn) return;
+      const id = Number(btn.dataset.id);
+      btn.dataset.action === 'inc' ? addToCart(cart[id].item) : decrementCart(id);
+    });
+
+    const openOrderPanel  = () => { orderPanel.classList.add('open'); orderBackdrop.classList.add('open'); document.body.style.overflow = 'hidden'; };
+    const closeOrderPanel = () => { orderPanel.classList.remove('open'); orderBackdrop.classList.remove('open'); document.body.style.overflow = ''; };
+
+    viewOrderBtn.addEventListener('click', openOrderPanel);
+    orderPanelClose.addEventListener('click', closeOrderPanel);
+    orderBackdrop.addEventListener('click', closeOrderPanel);
+
+    /* ══════════════════════════════════════════
+       SPLIT BY PERSON (on-demand, off by default)
+    ══════════════════════════════════════════ */
+    function defaultPersonName(n) { return `${t('guestPrefix')} ${n}`; }
+
+    function ensureDefaultPeople() {
+      if (people.length === 0) people = [defaultPersonName(1), defaultPersonName(2)];
+    }
+
+    function assignedSum(itemId) {
+      const a = personAssignments[itemId];
+      if (!a) return 0;
+      return Object.values(a).reduce((s, n) => s + n, 0);
+    }
+
+    function unassignedQty(itemId) {
+      const item = cart[itemId];
+      if (!item) return 0;
+      return Math.max(0, item.qty - assignedSum(itemId));
+    }
+
+    function getAssignment(itemId, person) {
+      return (personAssignments[itemId] && personAssignments[itemId][person]) || 0;
+    }
+
+    function adjustAssignment(itemId, person, delta) {
+      const item = cart[itemId];
+      if (!item) return;
+      if (!personAssignments[itemId]) personAssignments[itemId] = {};
+      const current = personAssignments[itemId][person] || 0;
+      let next = current + delta;
+      if (next < 0) next = 0;
+      // Can't assign more than the item's total quantity across all people
+      const otherSum = assignedSum(itemId) - current;
+      if (otherSum + next > item.qty) next = item.qty - otherSum;
+      personAssignments[itemId][person] = next;
+      renderOrderList();
+    }
+
+    function clampAssignmentsToQty(itemId) {
+      const item = cart[itemId];
+      const a = personAssignments[itemId];
+      if (!item || !a) return;
+      let sum = assignedSum(itemId);
+      if (sum <= item.qty) return;
+      // Trim from the end of the people list first until it fits
+      for (let i = people.length - 1; i >= 0 && sum > item.qty; i--) {
+        const person = people[i];
+        const have = a[person] || 0;
+        if (have <= 0) continue;
+        const reduceBy = Math.min(have, sum - item.qty);
+        a[person] = have - reduceBy;
+        sum -= reduceBy;
+      }
+    }
+
+    function renderPeopleChips() {
+      peopleChips.innerHTML = people.map(name => `
+        <span class="person-chip">
+          <span>${name}</span>
+          <button class="person-chip-remove" data-person="${name}" aria-label="${t('removePersonAria')(name)}">✕</button>
+        </span>`).join('');
+    }
+
+    function updateSplitUI() {
+      peopleEditor.classList.toggle('visible', splitByPerson);
+      splitToggle.checked = splitByPerson;
+      if (splitByPerson) {
+        ensureDefaultPeople();
+        renderPeopleChips();
+      }
+      renderOrderList();
+    }
+
+    splitToggle.addEventListener('change', () => {
+      splitByPerson = splitToggle.checked;
+      updateSplitUI();
+    });
+
+    peopleChips.addEventListener('click', e => {
+      const btn = e.target.closest('.person-chip-remove');
+      if (!btn) return;
+      const person = btn.dataset.person;
+      people = people.filter(p => p !== person);
+      Object.keys(personAssignments).forEach(itemId => {
+        if (personAssignments[itemId][person] !== undefined) delete personAssignments[itemId][person];
+      });
+      renderPeopleChips();
+      renderOrderList();
+    });
+
+    function addPerson() {
+      const name = newPersonInput.value.trim();
+      if (!name) return;
+      if (people.includes(name)) { newPersonInput.value = ''; return; }
+      people.push(name);
+      newPersonInput.value = '';
+      renderPeopleChips();
+      renderOrderList();
+      newPersonInput.focus();
+    }
+    addPersonBtn.addEventListener('click', addPerson);
+    newPersonInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addPerson(); } });
+
+    function buildAssignRowHtml(itemId) {
+      const pillsHtml = people.map(person => {
+        const count = getAssignment(itemId, person);
+        const canInc = assignedSum(itemId) < cart[itemId].qty;
+        return `
+          <span class="assign-pill">
+            <span class="assign-pill-name">${person}</span>
+            <button class="assign-btn" data-action="assign-dec" data-id="${itemId}" data-person="${person}" ${count === 0 ? 'disabled' : ''}>−</button>
+            <span class="assign-count">${count}</span>
+            <button class="assign-btn" data-action="assign-inc" data-id="${itemId}" data-person="${person}" ${!canInc ? 'disabled' : ''}>+</button>
+          </span>`;
+      }).join('');
+      const unassigned = unassignedQty(itemId);
+      const unassignedHtml = unassigned > 0 ? `<span class="assign-unassigned">${unassigned} ${t('unassignedLabel')}</span>` : '';
+      return `<div class="assign-row">${pillsHtml}${unassignedHtml}</div>`;
+    }
+
+    // Compute a per-person breakdown for review/kitchen: { personName: [{name, qty}], ... }
+    // Includes an "Unassigned" bucket only if something is left unassigned.
+    function computePersonBreakdown() {
+      const breakdown = {};
+      people.forEach(p => { breakdown[p] = []; });
+      let anyAssigned = false;
+      let anyUnassigned = false;
+      cartEntries().forEach(({ item, qty }) => {
+        people.forEach(person => {
+          const n = getAssignment(item.id, person);
+          if (n > 0) { breakdown[person].push({ name: itemName(item), nameEn: item.name.en, qty: n }); anyAssigned = true; }
+        });
+        const un = unassignedQty(item.id);
+        if (un > 0) {
+          if (!breakdown[t('unassignedLabel')]) breakdown[t('unassignedLabel')] = [];
+          breakdown[t('unassignedLabel')].push({ name: itemName(item), nameEn: item.name.en, qty: un });
+          anyUnassigned = true;
+        }
+      });
+      return { breakdown, hasContent: anyAssigned || anyUnassigned };
+    }
+
+    /* ══════════════════════════════════════════
+       CALL FOR SERVICE
+    ══════════════════════════════════════════ */
+    const callServiceFab  = document.getElementById('callServiceFab');
+    const serviceModal    = document.getElementById('serviceModal');
+    const serviceBackdrop = document.getElementById('serviceBackdrop');
+    const serviceClose    = document.getElementById('serviceClose');
+    const serviceTable    = document.getElementById('serviceTable');
+    const serviceReasons  = document.getElementById('serviceReasons');
+    const serviceSendBtn  = document.getElementById('serviceSendBtn');
+    const serviceRequestView = document.getElementById('serviceRequestView');
+    const serviceConfirm  = document.getElementById('serviceConfirm');
+    const serviceConfirmSub = document.getElementById('serviceConfirmSub');
+    let selectedReason = null;
+
+    function openServiceModal() {
+      serviceModal.classList.add('open');
+      serviceRequestView.style.display = '';
+      serviceConfirm.classList.remove('visible');
+      document.body.style.overflow = 'hidden';
+    }
+    function closeServiceModal() {
+      serviceModal.classList.remove('open');
+      document.body.style.overflow = orderPanel.classList.contains('open') || checkoutModal.classList.contains('open') ? 'hidden' : '';
+    }
+    function updateSendBtnState() {
+      serviceSendBtn.disabled = !selectedReason;
+    }
+
+    callServiceFab.addEventListener('click', openServiceModal);
+    serviceClose.addEventListener('click', closeServiceModal);
+    serviceBackdrop.addEventListener('click', closeServiceModal);
+
+    serviceReasons.addEventListener('click', e => {
+      const btn = e.target.closest('.reason-btn');
+      if (!btn) return;
+      serviceReasons.querySelectorAll('.reason-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      selectedReason = btn.dataset.reason;
+      updateSendBtnState();
+    });
+
+    serviceSendBtn.addEventListener('click', () => {
+      if (!selectedReason) return;
+      const table = serviceTable.value || 'Unspecified table';
+      const request = {
+        id:        'svc_' + Date.now(),
+        table,
+        reason:    selectedReason,
+        status:    'pending',
+        createdAt: Date.now(),
+      };
+      try {
+        const existing = JSON.parse(localStorage.getItem('soreal_service_calls') || '[]');
+        existing.push(request);
+        localStorage.setItem('soreal_service_calls', JSON.stringify(existing));
+      } catch (e) { console.warn('localStorage not available', e); }
+
+      serviceConfirmSub.textContent = `A staff member has been notified — ${selectedReason.toLowerCase()} at ${table}.`;
+      serviceRequestView.style.display = 'none';
+      serviceConfirm.classList.add('visible');
+
+      setTimeout(() => {
+        closeServiceModal();
+        selectedReason = null;
+        serviceReasons.querySelectorAll('.reason-btn').forEach(b => b.classList.remove('selected'));
+        updateSendBtnState();
+      }, 2200);
+    });
+
+    /* ══════════════════════════════════════════
+       ORDER STATUS TRACKER
+    ══════════════════════════════════════════ */
+    const orderStatusBtn      = document.getElementById('orderStatusBtn');
+    const orderStatusDot      = document.getElementById('orderStatusDot');
+    const orderStatusBackdrop = document.getElementById('orderStatusBackdrop');
+    const orderStatusPanel    = document.getElementById('orderStatusPanel');
+    const orderStatusClose    = document.getElementById('orderStatusClose');
+    const orderStatusBody     = document.getElementById('orderStatusBody');
+    const ORDER_STATUS_FLOW   = ['placed', 'prep', 'ready', 'done'];
+
+    function saveActiveOrder() {
+      try {
+        if (activeOrder) localStorage.setItem('soreal_active_order', JSON.stringify(activeOrder));
+        else localStorage.removeItem('soreal_active_order');
+      } catch (e) { console.warn('localStorage not available', e); }
+    }
+
+    function loadActiveOrderFromStorage() {
+      try {
+        const raw = localStorage.getItem('soreal_active_order');
+        return raw ? JSON.parse(raw) : null;
+      } catch (e) { return null; }
+    }
+
+    function findKitchenOrder(id) {
+      try {
+        const orders = JSON.parse(localStorage.getItem('soreal_kitchen_orders') || '[]');
+        return orders.find(o => o.id === id) || null;
+      } catch (e) { return null; }
+    }
+
+    function statusMsgKey(status) {
+      return { placed: 'statusPlacedMsg', prep: 'statusPrepMsg', ready: 'statusReadyMsg', done: 'statusDoneMsg' }[status] || 'statusPlacedMsg';
+    }
+
+    function updateOrderStatusButton() {
+      if (!activeOrder) {
+        orderStatusBtn.classList.remove('visible');
+        return;
+      }
+      const order = findKitchenOrder(activeOrder.id);
+      orderStatusBtn.classList.add('visible');
+      const status = order ? order.status : 'placed';
+      orderStatusDot.className = `order-status-dot stage-${status}`;
+      document.getElementById('orderStatusBtnLabel').textContent = `${t('trackOrder')} ${activeOrder.orderNum}`;
+    }
+
+    function renderOrderStatusPanel() {
+      if (!activeOrder) return;
+      const order = findKitchenOrder(activeOrder.id);
+
+      if (!order) {
+        orderStatusBody.innerHTML = `
+          <div class="order-status-msg">${t('orderNotFound')}</div>
+          <button class="order-status-dismiss" id="orderStatusDismissBtn">${t('dismissTracking')}</button>`;
+        document.getElementById('orderStatusDismissBtn').addEventListener('click', () => {
+          activeOrder = null;
+          saveActiveOrder();
+          updateOrderStatusButton();
+          closeOrderStatusPanel();
+        });
+        return;
+      }
+
+      const stageIdx = ORDER_STATUS_FLOW.indexOf(order.status);
+      const stages = [
+        ['placed', t('stagePlaced')], ['prep', t('stagePrep')],
+        ['ready', t('stageReady')], ['done', t('stageDone')],
+      ];
+      const stepperHtml = stages.map(([key], i) => {
+        const cls = i < stageIdx ? 'done' : i === stageIdx ? 'current' : '';
+        const nodeContent = i < stageIdx ? '✓' : (i + 1);
+        return `
+          <div class="stepper-step ${cls}">
+            <div class="stepper-line"></div>
+            <div class="stepper-node">${nodeContent}</div>
+            <div class="stepper-label">${stages[i][1]}</div>
+          </div>`;
+      }).join('');
+
+      const itemsHtml = order.items.map(it => {
+        const bits = [];
+        if (it.sugar) bits.push(t('sugarSummary')(it.sugar));
+        if (it.spice) bits.push(t('spiceSummary')(spiceLabel(it.spice)));
+        if (it.removedIngredients && it.removedIngredients.length) bits.push(t('noSummary')(it.removedIngredients.join(', ')));
+        const summary = bits.length ? `<div style="font-size:11px;color:var(--gold);margin-top:2px">${bits.join(' · ')}</div>` : '';
+        return `
+        <div class="order-status-item-row" style="flex-direction:column;align-items:flex-start">
+          <div style="display:flex;justify-content:space-between;width:100%"><span>${it.qty}× ${displayItemNameForGuest(it.name)}</span></div>
+          ${summary}
+        </div>`;
+      }).join('');
+
+      const timestampsHtml = order.readyByEstimate && order.status !== 'done'
+        ? `<div class="order-status-num">${t('placedAtLabel')} ${formatClockTime(order.placedAt)} · ${t('readyByLabel')} ${formatClockTime(order.readyByEstimate)}</div>`
+        : `<div class="order-status-num">${t('placedAtLabel')} ${formatClockTime(order.placedAt)}</div>`;
+
+      orderStatusBody.innerHTML = `
+        <div class="order-status-num">${t('orderLabel')} <strong>${order.orderNum}</strong></div>
+        <div class="stepper">${stepperHtml}</div>
+        <div class="order-status-msg">${t(statusMsgKey(order.status))}</div>
+        ${timestampsHtml}
+        <div class="order-status-items">${itemsHtml}</div>
+        <button class="order-status-dismiss" id="orderStatusDismissBtn">${t('dismissTracking')}</button>`;
+
+      document.getElementById('orderStatusDismissBtn').addEventListener('click', () => {
+        activeOrder = null;
+        saveActiveOrder();
+        updateOrderStatusButton();
+        closeOrderStatusPanel();
+      });
+    }
+
+    // Kitchen tickets store canonical English names; show translated names to guests when possible
+    function displayItemNameForGuest(englishName) {
+      const match = MENU_ITEMS.find(i => i.name.en === englishName);
+      return match ? itemName(match) : englishName;
+    }
+
+    function openOrderStatusPanel() {
+      if (!activeOrder) return;
+      renderOrderStatusPanel();
+      orderStatusPanel.classList.add('open');
+      orderStatusBackdrop.classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeOrderStatusPanel() {
+      orderStatusPanel.classList.remove('open');
+      orderStatusBackdrop.classList.remove('open');
+      document.body.style.overflow = '';
+    }
+
+    orderStatusBtn.addEventListener('click', openOrderStatusPanel);
+    orderStatusClose.addEventListener('click', closeOrderStatusPanel);
+    orderStatusBackdrop.addEventListener('click', closeOrderStatusPanel);
+
+    // Poll for kitchen-side status changes every few seconds
+    setInterval(() => {
+      if (activeOrder) {
+        updateOrderStatusButton();
+        if (orderStatusPanel.classList.contains('open')) renderOrderStatusPanel();
+      }
+      if (checkoutModal.classList.contains('open') && currentStep === 0 && orderType === 'dine-in') {
+        updateTableAvailabilityUI();
+      }
+      if (checkoutModal.classList.contains('open') && currentStep === 1) {
+        applyStripeConfig();
+      }
+    }, 4000);
+
+    /* ══════════════════════════════════════════
+       AI MENU ASSISTANT — UI
+    ══════════════════════════════════════════ */
+    function renderAiQuickChips() {
+      const chips = [t('aiChip1'), t('aiChip2'), t('aiChip3'), t('aiChip4')];
+      aiQuickChips.innerHTML = chips.map(c => `<button class="ai-quick-chip" data-text="${c}">${c}</button>`).join('');
+    }
+
+    function escapeHtml(s) {
+      return s.replace(/[&<>"']/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[m]));
+    }
+
+    function renderAiMessages() {
+      aiMessagesEl.innerHTML = aiConversation.map(msg => {
+        if (msg.role === 'user') {
+          return `<div class="ai-msg user">${escapeHtml(msg.text)}</div>`;
+        }
+        const bubble = `<div class="ai-msg assistant${msg.disclaimer ? ' disclaimer' : ''}">${escapeHtml(msg.text)}</div>`;
+        const cards = (msg.dishes && msg.dishes.length)
+          ? `<div class="ai-dish-cards">${msg.dishes.map(d => `
+              <div class="ai-dish-card">
+                <img class="ai-dish-thumb" src="${d.thumb}" alt="" loading="lazy" />
+                <div class="ai-dish-info">
+                  <div class="ai-dish-name">${escapeHtml(d.name)}</div>
+                  <div class="ai-dish-price">${fmt(d.price)}</div>
+                </div>
+                <button class="ai-dish-add" data-id="${d.id}" aria-label="${t('addAria')(d.name)}">+</button>
+              </div>`).join('')}</div>`
+          : '';
+        return bubble + cards;
+      }).join('');
+      aiMessagesEl.scrollTop = aiMessagesEl.scrollHeight;
+    }
+
+    function showAiTyping() {
+      const el = document.createElement('div');
+      el.className = 'ai-typing';
+      el.id = 'aiTypingIndicator';
+      el.innerHTML = '<span></span><span></span><span></span>';
+      aiMessagesEl.appendChild(el);
+      aiMessagesEl.scrollTop = aiMessagesEl.scrollHeight;
+    }
+    function hideAiTyping() {
+      const el = document.getElementById('aiTypingIndicator');
+      if (el) el.remove();
+    }
+
+    async function sendAiMessage(text, viaVoice) {
+      const trimmed = text.trim();
+      if (!trimmed) return;
+      aiConversation.push({ role: 'user', text: trimmed });
+      renderAiMessages();
+      aiInput.value = '';
+      showAiTyping();
+
+      // Small delay so the typing indicator reads naturally rather than
+      // flashing instantly, whether answered locally or via a real backend.
+      const [reply] = await Promise.all([
+        getAssistantReply(trimmed),
+        new Promise(r => setTimeout(r, 420)),
+      ]);
+
+      hideAiTyping();
+      aiConversation.push({ role: 'assistant', text: reply.text, dishes: reply.dishes || [], disclaimer: !!reply.disclaimer });
+      renderAiMessages();
+      if (viaVoice) speakText(reply.text);
+    }
+
+    /* ══════════════════════════════════════════
+       VOICE ORDERING
+       ─────────────────────────────────────────
+       Uses the browser's built-in Web Speech API — no server,
+       no API key. Support varies: works well in Chrome/Edge
+       (desktop + Android), partial in Safari, absent in Firefox.
+       The mic button only appears when the browser exposes it.
+    ══════════════════════════════════════════ */
+    const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recognition = null;
+    let isListening = false;
+
+    function speechLangTag() {
+      return currentLang === 'es' ? 'es-ES' : 'en-US';
+    }
+
+    function speakText(text) {
+      if (!('speechSynthesis' in window)) return;
+      try {
+        window.speechSynthesis.cancel(); // don't stack up if replies come quickly
+        const utter = new SpeechSynthesisUtterance(text.replace(/[*_#]/g, ''));
+        utter.lang = speechLangTag();
+        window.speechSynthesis.speak(utter);
+      } catch (e) { /* speech synthesis is a nice-to-have, fail silently */ }
+    }
+
+    function setListeningUI(on, statusText) {
+      isListening = on;
+      aiMicBtn.classList.toggle('listening', on);
+      aiVoiceBanner.style.display = on ? 'flex' : 'none';
+      if (statusText) aiVoiceBannerText.textContent = statusText;
+    }
+
+    function initVoiceRecognition() {
+      if (!SpeechRecognitionAPI) return; // leave the mic button hidden
+
+      aiMicBtn.style.display = '';
+      recognition = new SpeechRecognitionAPI();
+      recognition.continuous = false;
+      recognition.interimResults = true;
+
+      recognition.addEventListener('start', () => {
+        setListeningUI(true, t('voiceListening'));
+      });
+
+      recognition.addEventListener('result', e => {
+        let transcript = '';
+        for (let i = 0; i < e.results.length; i++) transcript += e.results[i][0].transcript;
+        aiInput.value = transcript;
+        if (e.results[e.results.length - 1].isFinal) {
+          setListeningUI(false);
+          sendAiMessage(transcript, true);
+        }
+      });
+
+      recognition.addEventListener('error', e => {
+        setListeningUI(false);
+        const msgKey = e.error === 'not-allowed' || e.error === 'permission-denied' ? 'voicePermissionDenied'
+          : e.error === 'no-speech' ? 'voiceNoSpeech'
+          : 'voiceError';
+        aiConversation.push({ role: 'assistant', text: t(msgKey), dishes: [] });
+        renderAiMessages();
+      });
+
+      recognition.addEventListener('end', () => {
+        setListeningUI(false);
+      });
+    }
+
+    function toggleVoiceInput() {
+      if (!recognition) return;
+      if (isListening) {
+        recognition.stop();
+        return;
+      }
+      recognition.lang = speechLangTag();
+      try { recognition.start(); } catch (e) { /* already-started errors are harmless */ }
+    }
+
+    aiMicBtn.addEventListener('click', toggleVoiceInput);
+    initVoiceRecognition();
+
+    function openAiPanel() {
+      aiPanel.classList.add('open');
+      aiPanelBackdrop.classList.add('open');
+      document.body.style.overflow = 'hidden';
+      if (!aiGreeted) {
+        aiConversation.push({ role: 'assistant', text: t('aiGreeting'), dishes: [] });
+        aiGreeted = true;
+        renderAiMessages();
+      }
+      renderAiQuickChips();
+      aiInput.focus();
+    }
+
+    function closeAiPanel() {
+      aiPanel.classList.remove('open');
+      aiPanelBackdrop.classList.remove('open');
+      document.body.style.overflow = '';
+    }
+
+    aiAssistantFab.addEventListener('click', openAiPanel);
+    aiPanelClose.addEventListener('click', closeAiPanel);
+    aiPanelBackdrop.addEventListener('click', closeAiPanel);
+
+    aiSendBtn.addEventListener('click', () => sendAiMessage(aiInput.value));
+    aiInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); sendAiMessage(aiInput.value); } });
+
+    aiQuickChips.addEventListener('click', e => {
+      const chip = e.target.closest('.ai-quick-chip');
+      if (!chip) return;
+      sendAiMessage(chip.dataset.text);
+    });
+
+    aiMessagesEl.addEventListener('click', e => {
+      const btn = e.target.closest('.ai-dish-add');
+      if (!btn) return;
+      const id = Number(btn.dataset.id);
+      const item = MENU_ITEMS.find(i => i.id === id);
+      if (!item) return;
+      addToCart(item);
+      btn.textContent = '✓';
+      btn.classList.add('added');
+      setTimeout(() => { btn.textContent = '+'; btn.classList.remove('added'); }, 1000);
+    });
+
+    /* ══════════════════════════════════════════
+       CHECKOUT — STEP NAVIGATION
+    ══════════════════════════════════════════ */
+    const TOTAL_STEPS = 4;
+
+    function goToStep(n) {
+      // hide current
+      document.getElementById(`step${currentStep}`).classList.remove('active');
+      document.getElementById(`dot${currentStep}`).classList.remove('active');
+      document.getElementById(`dot${currentStep}`).classList.add('done');
+      // show new
+      currentStep = n;
+      document.getElementById(`step${currentStep}`).classList.add('active');
+      document.getElementById(`dot${currentStep}`).classList.remove('done');
+      document.getElementById(`dot${currentStep}`).classList.add('active');
+      checkoutTitle.textContent = t('checkoutTitles')[currentStep];
+      // hide close button on final confirmation step
+      checkoutCloseBtn.style.display = currentStep === 3 ? 'none' : '';
+      if (currentStep === 1) { applyStripeConfig(); syncPaymentRequestAmount(); }
+    }
+
+    function openCheckout() {
+      closeOrderPanel();
+      // reset all dots & steps
+      for (let i = 0; i < TOTAL_STEPS; i++) {
+        document.getElementById(`dot${i}`).className  = 'step-dot' + (i === 0 ? ' active' : '');
+        document.getElementById(`step${i}`).className = 'checkout-step' + (i === 0 ? ' active' : '');
+      }
+      currentStep = 0;
+      checkoutTitle.textContent = t('checkoutTitles')[0];
+      checkoutCloseBtn.style.display = '';
+      checkoutModal.classList.add('open');
+      document.body.style.overflow = 'hidden';
+      if (orderType === 'dine-in') updateTableAvailabilityUI();
+    }
+
+    const closeCheckout = () => { checkoutModal.classList.remove('open'); document.body.style.overflow = ''; };
+
+    openCheckoutBtn.addEventListener('click', () => { if (cartItemCount() > 0) openCheckout(); });
+    checkoutCloseBtn.addEventListener('click', closeCheckout);
+    checkoutBackdrop.addEventListener('click', closeCheckout);
+
+    /* ══════════════════════════════════════════
+       TABLE AVAILABILITY
+       ─────────────────────────────────────────
+       Table status and the "full" wait time are managed by staff
+       on kitchen.html and shared via localStorage. We just read
+       and reflect it here — never write from the guest side.
+    ══════════════════════════════════════════ */
+    const ALL_TABLES = Array.from({ length: 10 }, (_, i) => `Table ${i + 1}`);
+
+    function readTableStatus() {
+      try { return JSON.parse(localStorage.getItem('soreal_table_status') || '{}'); }
+      catch (e) { return {}; }
+    }
+
+    function readWaitTime() {
+      try {
+        const raw = localStorage.getItem('soreal_wait_time');
+        const n = raw ? parseInt(raw, 10) : NaN;
+        return Number.isFinite(n) && n > 0 ? n : null;
+      } catch (e) { return null; }
+    }
+
+    function updateTableAvailabilityUI() {
+      const note = document.getElementById('tableAvailabilityNote');
+      const select = document.getElementById('tableNumber');
+      if (!note || !select) return;
+
+      const status = readTableStatus();
+      let availableCount = 0;
+      Array.from(select.options).forEach(opt => {
+        if (!opt.value) return; // skip the placeholder
+        const occupied = status[opt.value] === 'occupied';
+        opt.disabled = occupied;
+        if (!occupied) availableCount++;
+      });
+
+      // If the table the guest currently has selected just became occupied,
+      // clear the selection so they don't submit an order for a taken table.
+      if (select.value && status[select.value] === 'occupied') select.value = '';
+
+      if (availableCount === 0) {
+        const wait = readWaitTime();
+        note.textContent = wait ? t('tablesFullNote')(wait) : t('tablesFullNoteNoWait');
+        note.className = 'table-availability-note visible full';
+      } else {
+        note.textContent = t('tablesAvailableNote')(availableCount, ALL_TABLES.length);
+        note.className = 'table-availability-note visible ok';
+      }
+    }
+
+    /* ══════════════════════════════════════════
+       STEP 0 → STEP 1  (Details → Payment)
+    ══════════════════════════════════════════ */
+    // Order type toggle
+    ['typeDineIn','typeTakeout','typeDelivery'].forEach(id => {
+      document.getElementById(id).addEventListener('click', function () {
+        document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('selected'));
+        this.classList.add('selected');
+        orderType = this.dataset.type;
+        document.getElementById('tableRow').style.display   = orderType === 'dine-in'  ? '' : 'none';
+        document.getElementById('addressRow').style.display = orderType === 'delivery' ? '' : 'none';
+        if (orderType === 'dine-in') updateTableAvailabilityUI();
+      });
+    });
+
+    document.getElementById('btnStep0Next').addEventListener('click', () => {
+      const first = document.getElementById('firstName').value.trim();
+      const last  = document.getElementById('lastName').value.trim();
+      const phone = document.getElementById('phone').value.trim();
+      const addr  = document.getElementById('deliveryAddress').value.trim();
+      if (!first || !last)                          { alert(t('alertName')); return; }
+      if (!phone)                                   { alert(t('alertPhone')); return; }
+      if (orderType === 'delivery' && !addr)        { alert(t('alertAddress')); return; }
+      goToStep(1);
+    });
+
+    /* ══════════════════════════════════════════
+       STRIPE SETUP
+       ─────────────────────────────────────────
+       Stripe (card entry + Apple Pay / Google Pay) and PayPal
+       are off by default so the checkout works out of the box
+       with just Pay at the Counter. Staff can turn online
+       payments on/off live from kitchen.html → Tables panel →
+       Payment Options, no redeploy needed. ENABLE_STRIPE_PAYMENTS
+       below is just the fallback used the first time the page
+       ever loads, before staff have set a preference.
+       IMPORTANT: Replace pk_test_... with your
+       actual publishable key from:
+       https://dashboard.stripe.com/apikeys
+    ══════════════════════════════════════════ */
+    const ENABLE_STRIPE_PAYMENTS = false;
+    const STRIPE_PK = 'pk_test_YOUR_PUBLISHABLE_KEY_HERE';
+    const SERVER    = 'http://localhost:3001';  // your server.js URL
+
+    // PayPal Client ID — safe to expose in the browser (unlike a Secret).
+    // Get one at https://developer.paypal.com. Leave the placeholder in
+    // place to keep the styled "Pay with PayPal" button in demo mode;
+    // set a real Client ID to switch to real, working PayPal Checkout
+    // buttons (rendered by PayPal's own SDK) once server.js is running.
+    const PAYPAL_CLIENT_ID = 'YOUR_PAYPAL_CLIENT_ID';
+    const PAYPAL_CONFIGURED = PAYPAL_CLIENT_ID !== 'YOUR_PAYPAL_CLIENT_ID';
+
+    let stripe        = null;
+    let stripeElements= null;
+    let stripeCard    = null;
+    let paymentRequest= null;
+    let clientSecret  = null;
+    let paymentMethod = 'stripe-card';  // tracks what the user is paying with
+    let stripeInitialized = false;
+    let prbAvailable = false; // whether Apple/Google Pay was available on this device, last we checked
+    let paypalInitialized = false;
+    let paypalButtonsRendered = false;
+
+    function isStripeEnabled() {
+      const v = localStorage.getItem('soreal_stripe_enabled');
+      return v === null ? ENABLE_STRIPE_PAYMENTS : v === 'true';
+    }
+
+    // Show/hide every Stripe-specific element based on the current setting,
+    // and lazily init Stripe.js the first time it's turned on. Safe to call
+    // repeatedly (e.g. from the live-polling loop) since it just reflects
+    // current state each time rather than toggling.
+    function applyStripeConfig() {
+      const enabled = isStripeEnabled();
+      ['cardPayDivider', 'cardDetailsRow', 'payProcessing', 'secureNote', 'btnStep1Next']
+        .forEach(id => { const el = document.getElementById(id); if (el) el.style.display = enabled ? '' : 'none'; });
+      ['prbRow', 'prbDivider'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = (enabled && prbAvailable) ? '' : 'none';
+      });
+      if (enabled && !stripeInitialized) {
+        stripeInitialized = true;
+        initStripe();
+      }
+
+      // PayPal: same master on/off switch. If a real Client ID is set,
+      // show PayPal's own rendered buttons; otherwise keep the styled
+      // stub button (demo mode) exactly as before.
+      const paypalStub = document.getElementById('btnPayPal');
+      const paypalReal = document.getElementById('paypal-button-container');
+      if (PAYPAL_CONFIGURED) {
+        paypalStub.style.display = 'none';
+        paypalReal.style.display = enabled ? '' : 'none';
+        if (enabled && !paypalInitialized) {
+          paypalInitialized = true;
+          initPayPal();
+        }
+      } else {
+        paypalStub.style.display = enabled ? '' : 'none';
+        paypalReal.style.display = 'none';
+      }
+    }
+
+    function initStripe() {
+      if (typeof Stripe === 'undefined') {
+        console.warn('Stripe.js not loaded — running in demo mode');
+        return;
+      }
+      stripe = Stripe(STRIPE_PK);
+      stripeElements = stripe.elements({
+        fonts: [{ cssSrc: 'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400&display=swap' }],
+      });
+
+      // ── Stripe Card Element ──
+      stripeCard = stripeElements.create('card', {
+        style: {
+          base: {
+            fontFamily: 'DM Sans, sans-serif',
+            fontSize:   '14px',
+            color:      '#2C1A0E',
+            '::placeholder': { color: '#7A6F65' },
+          },
+          invalid: { color: '#c83c1e' },
+        },
+        hidePostalCode: false,
+      });
+      stripeCard.mount('#stripe-card-element');
+      stripeCard.on('change', e => {
+        const errEl = document.getElementById('cardError');
+        if (e.error) { errEl.textContent = e.error.message; errEl.classList.add('visible'); }
+        else         { errEl.textContent = '';               errEl.classList.remove('visible'); }
+      });
+
+      // ── Payment Request Button (Apple Pay + Google Pay) ──
+      paymentRequest = stripe.paymentRequest({
+        country:  'US',
+        currency: 'usd',
+        total:    { label: 'Ideal Café', amount: 100 }, // updated before showing
+        requestPayerName:  true,
+        requestPayerEmail: false,
+        requestPayerPhone: false,
+      });
+
+      const prButton = stripeElements.create('paymentRequestButton', {
+        paymentRequest,
+        style: { paymentRequestButton: { type: 'buy', theme: 'dark', height: '48px' } },
+      });
+
+      // Only show if Apple Pay or Google Pay is available on this device
+      paymentRequest.canMakePayment().then(result => {
+        prbAvailable = !!result;
+        if (result) {
+          prButton.mount('#stripe-payment-request-btn');
+          paymentMethod = result.applePay ? 'apple_pay' : 'google_pay';
+        } else {
+          document.getElementById('prbNote').style.display = 'block';
+        }
+        applyStripeConfig();
+      });
+
+      // Payment Request confirmed by the wallet (Face ID / fingerprint passed)
+      paymentRequest.on('paymentmethod', async ev => {
+        try {
+          if (!clientSecret) {
+            // Get a PaymentIntent from our server
+            clientSecret = await createPaymentIntent();
+          }
+          const { paymentIntent, error: confirmErr } = await stripe.confirmCardPayment(
+            clientSecret,
+            { payment_method: ev.paymentMethod.id },
+            { handleActions: false }
+          );
+
+          if (confirmErr) {
+            ev.complete('fail');
+            showPayError(confirmErr.message);
+            return;
+          }
+
+          ev.complete('success');
+
+          if (paymentIntent.status === 'requires_action') {
+            const { error } = await stripe.confirmCardPayment(clientSecret);
+            if (error) { showPayError(error.message); return; }
+          }
+
+          // Payment succeeded via Apple/Google Pay
+          paymentMethod = ev.walletName || paymentMethod;
+          finaliseOrder(paymentMethod);
+        } catch (err) {
+          ev.complete('fail');
+          showPayError('Payment failed. Please try again.');
+        }
+      });
+    }
+
+    async function createPaymentIntent() {
+      const first = document.getElementById('firstName').value.trim();
+      const last  = document.getElementById('lastName').value.trim();
+      const res   = await fetch(`${SERVER}/create-payment-intent`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: cartEntries().map(({ item, qty }) => ({ id: item.id, qty })),
+          customerName: `${first} ${last}`,
+          orderNum: pendingOrderNum,
+          paymentMethod,
+        }),
+      });
+      if (!res.ok) throw new Error('Server error creating payment intent');
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      return data.clientSecret;
+    }
+
+    function showPayError(msg) {
+      const el = document.getElementById('cardError');
+      el.textContent = msg;
+      el.classList.add('visible');
+      document.getElementById('payProcessing').classList.remove('visible');
+      document.getElementById('btnStep1Next').disabled = false;
+    }
+
+    function setProcessing(on) {
+      document.getElementById('payProcessing').classList.toggle('visible', on);
+      document.getElementById('btnStep1Next').disabled = on;
+    }
+
+    // ── Update the PaymentRequest amount whenever the cart changes ──
+    function syncPaymentRequestAmount() {
+      if (paymentRequest) {
+        paymentRequest.update({
+          total: {
+            label:  'Ideal Café',
+            amount: Math.round(cartGrand() * 100),
+          },
+        });
+      }
+    }
+
+    /* ══════════════════════════════════════════
+       STEP 1 — PAYMENT INTERACTIONS
+    ══════════════════════════════════════════ */
+    document.getElementById('btnStep1Back').addEventListener('click', () => goToStep(0));
+
+    document.getElementById('btnStep1Next').addEventListener('click', async () => {
+      if (!stripe) {
+        // Demo mode — no Stripe key configured; skip straight to review
+        paymentMethod = 'demo-card';
+        buildReview();
+        goToStep(2);
+        return;
+      }
+
+      setProcessing(true);
+      document.getElementById('cardError').classList.remove('visible');
+
+      try {
+        // Create PaymentIntent on server
+        clientSecret = await createPaymentIntent();
+
+        // Confirm with the Stripe Card Element
+        const { paymentIntent, error } = await stripe.confirmCardPayment(clientSecret, {
+          payment_method: {
+            card: stripeCard,
+            billing_details: {
+              name: `${document.getElementById('firstName').value.trim()} ${document.getElementById('lastName').value.trim()}`,
+            },
+          },
+        });
+
+        if (error) {
+          showPayError(error.message);
+          return;
+        }
+
+        if (paymentIntent.status === 'succeeded') {
+          paymentMethod = 'stripe-card';
+          setProcessing(false);
+          buildReview();
+          goToStep(2);
+        }
+      } catch (err) {
+        showPayError('Could not connect to payment server. Please check server.js is running.');
+      }
+    });
+
+    /* ══════════════════════════════════════════
+       PAYPAL SETUP
+       ─────────────────────────────────────────
+       Loads PayPal's JS SDK dynamically (only once real credentials are
+       configured above) and renders PayPal's own Checkout buttons into
+       #paypal-button-container. Order creation and capture both happen
+       server-side in server.js — PayPal, like Stripe, can't be safely
+       completed from the browser alone.
+    ══════════════════════════════════════════ */
+    function showPayPalError(msg) {
+      const el = document.getElementById('paypalError');
+      el.textContent = msg;
+      el.classList.add('visible');
+    }
+
+    function initPayPal() {
+      if (typeof paypal !== 'undefined') { renderPayPalButtons(); return; }
+      const script = document.createElement('script');
+      script.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(PAYPAL_CLIENT_ID)}&currency=USD`;
+      script.onload = renderPayPalButtons;
+      script.onerror = () => showPayPalError('Could not load PayPal — please try another payment method.');
+      document.head.appendChild(script);
+    }
+
+    function renderPayPalButtons() {
+      if (paypalButtonsRendered || typeof paypal === 'undefined') return;
+      paypalButtonsRendered = true;
+
+      paypal.Buttons({
+        style: { layout: 'horizontal', height: 40, tagline: false },
+
+        // Ask the server to create the order. The server recalculates the
+        // total itself from item ids/quantities — it never trusts a price
+        // sent from the browser, so a tampered client can't under-pay.
+        createOrder: async () => {
+          document.getElementById('paypalError').classList.remove('visible');
+          const res = await fetch(`${SERVER}/create-paypal-order`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              items: cartEntries().map(({ item, qty }) => ({ id: item.id, qty })),
+              orderNum: pendingOrderNum,
+            }),
+          });
+          const data = await res.json();
+          if (!res.ok || data.error) throw new Error(data.error || 'Could not start PayPal checkout');
+          return data.orderID;
+        },
+
+        // Buyer approved in the PayPal popup — capture the payment.
+        onApprove: async (data) => {
+          try {
+            const res = await fetch(`${SERVER}/capture-paypal-order`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ orderID: data.orderID }),
+            });
+            const capture = await res.json();
+            if (!res.ok || capture.error) throw new Error(capture.error || 'PayPal payment could not be captured');
+            paymentMethod = 'paypal';
+            buildReview();
+            goToStep(2);
+          } catch (err) {
+            showPayPalError(err.message || 'PayPal payment failed. Please try again.');
+          }
+        },
+
+        onError: () => showPayPalError('PayPal hit a snag — please try again or choose another payment method.'),
+      }).render('#paypal-button-container');
+    }
+
+    // Fallback used only when PAYPAL_CLIENT_ID above is still the placeholder
+    // (demo mode) — keeps the original styled button working as a stand-in.
+    document.getElementById('btnPayPal').addEventListener('click', () => {
+      if (PAYPAL_CONFIGURED) return; // real buttons render separately once configured
+      alert('PayPal demo mode: set PAYPAL_CLIENT_ID and run server.js to enable real PayPal Checkout here.');
+      paymentMethod = 'paypal';
+      buildReview();
+      goToStep(2);
+    });
+
+    // Pay at the Counter — no charge now, just record intent and skip straight to review
+    document.getElementById('btnPayCounter').addEventListener('click', () => {
+      paymentMethod = 'pay-at-counter';
+      document.getElementById('cardError').classList.remove('visible');
+      buildReview();
+      goToStep(2);
+    });
+
+    /* ══════════════════════════════════════════
+       STEP 2 — REVIEW
+    ══════════════════════════════════════════ */
+    function buildReview() {
+      const entries  = cartEntries();
+      const subtotal = cartSubtotal();
+      const tax      = cartTax();
+      const grand    = cartGrand();
+
+      document.getElementById('reviewItems').innerHTML = entries.map(({ item, qty, customization }) => {
+        const summary = customizationSummary(customization);
+        return `<div class="review-item-row" style="flex-direction:column;align-items:flex-start;gap:2px">
+          <div style="display:flex;justify-content:space-between;width:100%">
+            <span class="review-item-name">${qty}× ${itemName(item)}</span>
+            <span class="review-item-price">${fmt(item.price * qty)}</span>
+          </div>
+          ${summary ? `<span style="font-size:11.5px;color:var(--gold)">${summary}</span>` : ''}
+        </div>`;
+      }).join('');
+
+      document.getElementById('reviewTotals').innerHTML = `
+        <div class="review-total-row"><span>${t('subtotalRow')}</span><span>${fmt(subtotal)}</span></div>
+        <div class="review-total-row"><span>${t('taxRow')}</span><span>${fmt(tax)}</span></div>
+        <div class="review-total-row grand"><span>${t('totalRow')}</span><span>${fmt(grand)}</span></div>`;
+
+      const perPersonSection = document.getElementById('reviewPerPersonSection');
+      if (splitByPerson && people.length) {
+        const { breakdown, hasContent } = computePersonBreakdown();
+        if (hasContent) {
+          perPersonSection.style.display = '';
+          document.getElementById('reviewPerPerson').innerHTML = Object.entries(breakdown)
+            .filter(([, items]) => items.length)
+            .map(([person, items]) => `
+              <div style="margin-bottom:0.5rem"><strong>${person}:</strong> ${items.map(i => `${i.qty}× ${i.name}`).join(', ')}</div>
+            `).join('');
+        } else {
+          perPersonSection.style.display = 'none';
+        }
+      } else {
+        perPersonSection.style.display = 'none';
+      }
+
+      const first  = document.getElementById('firstName').value.trim();
+      const last   = document.getElementById('lastName').value.trim();
+      const phone  = document.getElementById('phone').value.trim();
+      const instr  = document.getElementById('specialInstructions').value.trim();
+      const table  = document.getElementById('tableNumber').value;
+      const addr   = document.getElementById('deliveryAddress').value.trim();
+      const typeLabel = t('typeLabels')[orderType];
+
+      let custHtml = `${first} ${last}<br>${phone}<br>${typeLabel}`;
+      if (orderType === 'dine-in' && table) custHtml += ` — ${table}`;
+      if (orderType === 'delivery' && addr) custHtml += `<br>${addr}`;
+      if (instr) custHtml += `<br><em style="color:var(--smoke)">"${instr}"</em>`;
+      document.getElementById('reviewCustomer').innerHTML = custHtml;
+
+      const payLabels = t('payLabels');
+      document.getElementById('reviewPayment').innerHTML =
+        `<div class="review-payment-badge">${payLabels[paymentMethod] || paymentMethod}
+         ${paymentMethod === 'stripe-card' ? `<span style="color:var(--smoke);margin-left:6px">${t('chargedNote')}</span>` : ''}
+         ${paymentMethod === 'pay-at-counter' ? `<span style="color:var(--smoke);margin-left:6px">${t('notYetChargedNote')}</span>` : ''}
+        </div>`;
+    }
+
+    document.getElementById('btnStep2Back').addEventListener('click', () => goToStep(1));
+
+    document.getElementById('btnStep2Next').addEventListener('click', () => {
+      finaliseOrder(paymentMethod);
+    });
+
+    /* ══════════════════════════════════════════
+       FINALISE ORDER (push to kitchen + confirm)
+    ══════════════════════════════════════════ */
+    let pendingOrderNum = '';
+
+    function finaliseOrder(method) {
+      const orderNum = '#' + (1000 + Math.floor(Math.random() * 9000));
+      pendingOrderNum = orderNum;
+      const placedAt = Date.now();
+      // Use the upper end of the range so we never under-promise on timing.
+      const etaMinutes = orderType === 'delivery' ? 45 : 20;
+      const readyByEstimate = placedAt + etaMinutes * 60000;
+
+      document.getElementById('confirmOrderNum').textContent = orderNum;
+      document.getElementById('confirmEta').textContent = orderType === 'delivery' ? '30–45 min' : '10–20 min';
+      document.getElementById('confirmSub').innerHTML = method === 'pay-at-counter'
+        ? t('confirmSubCounter')
+        : t('confirmSubDefault');
+      document.getElementById('confirmTimestamps').innerHTML =
+        `${t('placedAtLabel')} ${formatClockTime(placedAt)} · ${t('readyByLabel')} ${formatClockTime(readyByEstimate)}`;
+
+      const first  = document.getElementById('firstName').value.trim();
+      const last   = document.getElementById('lastName').value.trim();
+      const phone  = document.getElementById('phone').value.trim();
+      const table  = document.getElementById('tableNumber').value;
+      const notes  = document.getElementById('specialInstructions').value.trim();
+
+      const kitchenOrder = {
+        id:           'ord_' + placedAt,
+        orderNum,
+        status:       'placed',
+        placedAt,
+        readyByEstimate,
+        customerName: `${first} ${last}`,
+        phone,
+        orderType,
+        table:        orderType === 'dine-in' ? table : '',
+        notes,
+        items:        cartEntries().map(({ item, qty, customization }) => ({
+          name: item.name.en, qty,
+          sugar: customization && customization.sugar,
+          spice: customization && customization.spice,
+          removedIngredients: (customization && customization.removedIngredients) || [],
+        })),
+        checkedItems: {},
+        total:        cartGrand().toFixed(2),
+        payment:      method,
+        paid:         method !== 'pay-at-counter',
+      };
+
+      // Attach a per-person breakdown for the kitchen/waiter, using canonical
+      // English item names for consistency with the rest of the ticket.
+      if (splitByPerson && people.length) {
+        const personOrders = people.map(person => ({
+          name: person,
+          items: cartEntries()
+            .map(({ item }) => ({ name: item.name.en, qty: getAssignment(item.id, person) }))
+            .filter(i => i.qty > 0),
+        })).filter(p => p.items.length);
+        const unassignedItems = cartEntries()
+          .map(({ item }) => ({ name: item.name.en, qty: unassignedQty(item.id) }))
+          .filter(i => i.qty > 0);
+        if (unassignedItems.length) personOrders.push({ name: null, items: unassignedItems }); // null = unassigned bucket
+        if (personOrders.length) kitchenOrder.personOrders = personOrders;
+      }
+
+      try {
+        const existing = JSON.parse(localStorage.getItem('soreal_kitchen_orders') || '[]');
+        existing.push(kitchenOrder);
+        localStorage.setItem('soreal_kitchen_orders', JSON.stringify(existing));
+      } catch(e) { console.warn('localStorage not available', e); }
+
+      activeOrder = { id: kitchenOrder.id, orderNum, placedAt: kitchenOrder.placedAt, readyByEstimate };
+      saveActiveOrder();
+      updateOrderStatusButton();
+
+      goToStep(3);
+    }
+
+    /* ══════════════════════════════════════════
+       STEP 3 — CONFIRMED
+    ══════════════════════════════════════════ */
+    document.getElementById('newOrderBtn').addEventListener('click', () => {
+      cart = {};
+      personAssignments = {};
+      splitByPerson = false;
+      people = [];
+      updateSplitUI();
+      updateCart();
+      closeCheckout();
+    });
+
+    document.getElementById('confirmTrackBtn').addEventListener('click', () => {
+      closeCheckout();
+      openOrderStatusPanel();
+    });
+
+    /* ══════════════════════════════════════════
+       RENDER MENU GRID
+    ══════════════════════════════════════════ */
+    function itemMatchesSearch(item, q) {
+      const hay = `${itemName(item)} ${itemDesc(item)} ${item.name.en} ${item.desc.en}`.toLowerCase();
+      return hay.includes(q);
+    }
+
+    function renderGrid(filter) {
+      const q = searchQuery.trim().toLowerCase();
+      const searching = q.length > 0;
+      const base = searching ? MENU_ITEMS
+        : filter === 'all' ? MENU_ITEMS
+        : filter === 'specials' ? MENU_ITEMS.filter(isSpecial)
+        : MENU_ITEMS.filter(i => i.cat === filter);
+      const visible = searching ? base.filter(i => itemMatchesSearch(i, q)) : base;
+
+      const sectionKeys = { all:'sectionAll', drinks:'sectionDrinks', food:'sectionFood', desserts:'sectionDesserts', brunch:'sectionBrunch', specials:'sectionSpecials' };
+      sectionLabel.textContent = searching ? t('searchResultsFor')(searchQuery.trim()) : t(sectionKeys[filter] || 'sectionAll');
+
+      grid.innerHTML = '';
+      if (!visible.length) {
+        const titleKey = searching ? 'noSearchResultsTitle' : 'emptyStateTitle';
+        const subKey   = searching ? 'noSearchResultsSub'   : 'emptyStateSub';
+        grid.innerHTML = `<div class="empty-state"><p>${t(titleKey)}</p><p>${t(subKey)}</p></div>`;
+        return;
+      }
+      visible.forEach(item => {
+        const el = document.createElement('article');
+        el.className = 'menu-item';
+        el.setAttribute('aria-label', itemName(item));
+        const specialTagHtml = isSpecial(item) ? `<span class="tag special">⭐ ${t('specialTag')}</span>` : '';
+        const tagsHtml = specialTagHtml + item.tags.map(tag => `<span class="tag ${tag.cls}">${tagLabel(tag)}</span>`).join('');
+        el.innerHTML = `
+          <div class="item-media">
+            <img class="item-thumb" src="${item.thumb}" alt="${itemName(item)}" loading="lazy" />
+            <video class="item-video" src="${item.videoSrc}" muted loop playsinline preload="none" aria-hidden="true"></video>
+            <div class="video-badge" aria-hidden="true"><span class="play-dot"></span>${t('hoverToPreview')}</div>
+            <div class="hover-cue" aria-hidden="true">
+              <div class="hover-ring"><svg viewBox="0 0 16 16"><path d="M4 2l10 6-10 6V2z"/></svg></div>
+            </div>
+          </div>
+          <div class="item-body">
+            <div class="item-top">
+              <h2 class="item-name">${itemName(item)}</h2>
+              <span class="item-price">${fmt(item.price)}</span>
+            </div>
+            <p class="item-desc">${itemDesc(item)}</p>
+            <div class="item-footer">
+              ${tagsHtml}
+              <button class="add-btn" aria-label="${t('addAria')(itemName(item))}">+</button>
+            </div>
+          </div>`;
+
+        const media = el.querySelector('.item-media');
+        const video = el.querySelector('.item-video');
+        let hoverTimer;
+        media.addEventListener('mouseenter', () => { hoverTimer = setTimeout(() => video.play().catch(()=>{}), 80); });
+        media.addEventListener('mouseleave', () => { clearTimeout(hoverTimer); video.pause(); video.currentTime = 0; });
+        media.addEventListener('click', () => openOverlay(item));
+
+        el.querySelector('.add-btn').addEventListener('click', e => {
+          e.stopPropagation();
+          openCustomizeSheet(item);
+        });
+
+        grid.appendChild(el);
+      });
+    }
+
+    /* ══════════════════════════════════════════
+       VIDEO OVERLAY
+    ══════════════════════════════════════════ */
+    function openOverlay(item) {
+      overlayItem = item;
+      overlayVid.src = item.videoSrc;
+      overlayVid.muted = false;
+      overlayVid.volume = 1.0;
+      overlayVid.play().catch(() => { overlayVid.muted = true; overlayVid.play().catch(()=>{}); });
+      overlayName.textContent = itemName(item);
+      overlayDesc.textContent = itemDesc(item);
+      overlayAdd.textContent  = `${t('addToOrder')} — ${fmt(item.price)}`;
+      overlay.classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeOverlay() {
+      overlay.classList.remove('open');
+      overlayVid.pause();
+      overlayVid.muted = true;
+      overlayVid.src = '';
+      overlayItem = null;
+      document.body.style.overflow = '';
+    }
+
+    overlayClose.addEventListener('click', closeOverlay);
+    overlay.addEventListener('click', e => { if (e.target === overlay) closeOverlay(); });
+    overlayAdd.addEventListener('click', () => {
+      if (overlayItem) {
+        const item = overlayItem;
+        closeOverlay();
+        openCustomizeSheet(item);
+      }
+    });
+
+    /* ══════════════════════════════════════════
+       TABS + SEARCH + KEYBOARD
+    ══════════════════════════════════════════ */
+    const searchInput    = document.getElementById('searchInput');
+    const searchClearBtn = document.getElementById('searchClearBtn');
+
+    tabs.addEventListener('click', e => {
+      const btn = e.target.closest('.tab');
+      if (!btn) return;
+      tabs.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      btn.classList.add('active');
+      activeFilter = btn.dataset.cat;
+      if (searchQuery) {
+        searchQuery = '';
+        searchInput.value = '';
+        searchClearBtn.classList.remove('visible');
+      }
+      renderGrid(activeFilter);
+    });
+
+    searchInput.addEventListener('input', () => {
+      searchQuery = searchInput.value;
+      searchClearBtn.classList.toggle('visible', searchQuery.length > 0);
+      renderGrid(activeFilter);
+    });
+
+    searchClearBtn.addEventListener('click', () => {
+      searchQuery = '';
+      searchInput.value = '';
+      searchClearBtn.classList.remove('visible');
+      searchInput.focus();
+      renderGrid(activeFilter);
+    });
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { closeOverlay(); closeCheckout(); closeServiceModal(); closeCustomizeSheet(); }
+    });
+
+    /* ══════════════════════════════════════════
+       INIT
+    ══════════════════════════════════════════ */
+    activeOrder = loadActiveOrderFromStorage();
+    if (activeOrder) updateOrderStatusButton();
+    applyLanguage();
+    applyStripeConfig();
+
+    /* ══════════════════════════════════════════
+       SERVICE WORKER
+       Purpose-built for this menu page (video/image
+       caching + offline shell) — separate from the
+       CaféPlay AR service worker, which handles
+       .mind target files and isn't used here.
+    ══════════════════════════════════════════ */
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/js/cafe-menu-sw.js').catch(err =>
+          console.warn('[SW] registration failed (non-fatal):', err)
+        );
+      });
+    }
+  </script>
+</body>
+</html>

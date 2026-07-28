@@ -1,0 +1,17 @@
+{
+  "name": "ideal-cafe-server",
+  "version": "1.0.0",
+  "description": "Backend for the Ideal Cafe & Creamery ordering platform — Stripe PaymentIntents and PayPal order create/capture.",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "stripe": "^22.3.2"
+  }
+}
