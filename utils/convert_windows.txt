@@ -1,0 +1,3 @@
+pip install pyinstaller Pillow
+pyinstaller --onefile --noconsole convert_images_to_1x1_gui.py
+
